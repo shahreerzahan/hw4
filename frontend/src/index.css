@@ -162,6 +162,35 @@ p { margin: 0 0 1rem; }
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 
+/* Products page: search + category filter */
+.filters { margin-bottom: 3rem; display: flex; flex-direction: column; gap: 1.25rem; }
+.search-box { position: relative; max-width: 560px; }
+.search-box svg { position: absolute; left: 1.1rem; top: 50%; width: 18px; height: 18px; transform: translateY(-50%); color: var(--bark); }
+.search-box input {
+  width: 100%; font: inherit; font-size: 1rem; color: var(--espresso); background: #fff;
+  border: 1px solid var(--clay); border-radius: 999px; padding: 0.9rem 2.8rem 0.9rem 2.9rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.search-box input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(31, 46, 77, 0.12); }
+.search-box input::-webkit-search-cancel-button { display: none; }
+.search-clear {
+  position: absolute; right: 0.8rem; top: 50%; transform: translateY(-50%);
+  background: none; border: none; font-size: 1.3rem; color: var(--bark); cursor: pointer; line-height: 1;
+}
+.category-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.category-chip {
+  border: 1px solid var(--clay); background: transparent; color: var(--espresso); border-radius: 999px;
+  padding: 0.5rem 1rem; font: 400 0.92rem 'Roboto', sans-serif; cursor: pointer; transition: all 0.2s var(--ease);
+}
+.category-chip span { color: var(--bark); margin-left: 0.25rem; font-size: 0.82rem; }
+.category-chip:hover:not(:disabled) { border-color: var(--accent); }
+.category-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.category-chip.active span { color: rgba(255, 255, 255, 0.75); }
+.category-chip:disabled { opacity: 0.4; cursor: default; }
+.results-count { color: var(--bark); font-size: 0.92rem; margin: 0; display: flex; gap: 1rem; align-items: center; }
+.link-button { background: none; border: none; padding: 0; color: var(--accent); font: 500 0.92rem 'Roboto', sans-serif; cursor: pointer; text-decoration: underline; }
+.empty-state { text-align: center; padding: 4rem 1rem; }
+
 /* Product detail */
 .back-link { display: inline-block; margin-bottom: 3rem; }
 .product-detail { display: grid; grid-template-columns: 1.15fr 1fr; gap: 5rem; align-items: start; }
@@ -217,6 +246,19 @@ p { margin: 0 0 1rem; }
 .chat-results-bar strong { color: var(--espresso); font-weight: 500; }
 .chat-results-bar .btn { padding: 0.45rem 1.1rem; }
 .chat-results-x { background: none; border: none; font-size: 1.4rem; color: var(--bark); cursor: pointer; line-height: 1; }
+.chat-results-more { margin-top: 2.5rem; text-align: center; }
+.chat-quick {
+  display: flex; gap: 0.45rem; padding: 0.7rem 0.9rem 0; overflow-x: auto; scrollbar-width: none;
+  border-top: 1px solid var(--clay);
+}
+.chat-quick::-webkit-scrollbar { display: none; }
+.chat-quick-btn {
+  flex: none; border: 1px solid var(--clay); background: var(--cream); color: var(--accent);
+  border-radius: 999px; padding: 0.4rem 0.8rem; font: 500 0.8rem 'Roboto', sans-serif; cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.chat-quick-btn:hover:not(:disabled) { border-color: var(--accent); background: #fff; }
+.chat-quick-btn:disabled { opacity: 0.5; cursor: default; }
 .chat-cards-chip {
   display: block; margin-top: 0.6rem; padding: 0.35rem 0.8rem; border-radius: 999px;
   border: 1px solid var(--clay); background: var(--cream); color: var(--accent);
@@ -302,7 +344,7 @@ p { margin: 0 0 1rem; }
 .chat-bubble.typing span:nth-child(2) { animation-delay: 0.15s; }
 .chat-bubble.typing span:nth-child(3) { animation-delay: 0.3s; }
 @keyframes typing { 0%, 60%, 100% { opacity: 0.25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
-.chat-input { display: flex; gap: 0.5rem; padding: 0.9rem; border-top: 1px solid var(--clay); }
+.chat-input { display: flex; gap: 0.5rem; padding: 0.7rem 0.9rem 0.9rem; }
 .chat-input input {
   flex: 1; border: 1px solid var(--clay); border-radius: 999px; padding: 0.6rem 1rem;
   font: inherit; font-size: 0.92rem; background: var(--cream);

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useChatResults } from '../chatResults'
 import ProductCard from './ProductCard'
 import DanTheBulldog from './DanTheBulldog'
@@ -63,6 +63,13 @@ export default function ChatResultsPanel() {
             <ProductCard key={p.product_id} product={p} />
           ))}
         </div>
+        {results.seeAll && results.seeAll.count > count && (
+          <div className="chat-results-more">
+            <Link to={`/products?category=${encodeURIComponent(results.seeAll.category)}`} className="btn btn-primary">
+              See all {results.seeAll.count} {results.seeAll.category} →
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   )

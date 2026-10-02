@@ -1,7 +1,11 @@
+export const CATEGORIES = ['Hoodies', 'Crewnecks', 'T-Shirts', 'Quarter-Zips', 'Jackets', 'Long Sleeves'] as const
+export type Category = (typeof CATEGORIES)[number]
+
 export interface Product {
   product_id: string
   name: string
   garment_type: string
+  category: Category
   description: string
   colors: string[]
   search_tags: string[]
@@ -90,6 +94,7 @@ export interface CardProduct {
   product_id: string
   name: string
   garment_type: string
+  category: Category
   price: number
   colors: string[]
   description: string
@@ -100,6 +105,8 @@ export interface ChatReply {
   reply: string
   results_title: string | null
   products: CardProduct[]
+  see_all_category: Category | null
+  see_all_count: number | null
 }
 
 /** An earlier message sent back with guest requests, so Dan remembers the conversation. */

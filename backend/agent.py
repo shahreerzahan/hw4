@@ -19,7 +19,7 @@ from pydantic_ai.usage import UsageLimits
 
 import tools
 from models import (
-    AgentReply, ChatReply, CustomerInfo, HistoryMessage, PageInfo, PriceInfo, ProductInfo, ProductNotFound,
+    MAX_CARDS, AgentReply, Category, ChatReply, CustomerInfo, HistoryMessage, PageInfo, PriceInfo, ProductInfo, ProductNotFound,
     SearchResults, StockInfo,
 )
 
@@ -84,21 +84,27 @@ def search_catalogue(
     max_results: int = 8,
     min_price: float | None = None,
     max_price: float | None = None,
+    category: Category | None = None,
+    in_stock_only: bool = False,
+    in_stock_size: str | None = None,
 ) -> SearchResults:
     """Search the Campus Customs catalogue.
 
     Args:
-        query: Keywords such as type, color, sport, college, or who it's for ("navy hoodie",
-            "morse", "dad"). Leave empty to browse only by price.
-        max_results: How many products to return (1-30). Use 30 when the shopper wants to
-            browse a whole type ("what hoodies do you have?"), about 8 for a recommendation.
+        query: Keywords such as color, sport, college, school, or who it's for ("navy", "morse",
+            "dad", "golf"). Leave empty to browse with filters only.
+        max_results: How many products to return (1-12).
         min_price: Lowest price in dollars, if the shopper gave one.
         max_price: Highest price in dollars, e.g. 40 for "under $40".
+        category: Limit to one category: Hoodies, Crewnecks, T-Shirts, Quarter-Zips, Jackets,
+            or Long Sleeves. Use this when the shopper asks for a type of item.
+        in_stock_only: Only products with at least one size in stock right now (live).
+        in_stock_size: Only products that have this size in stock right now, e.g. "M".
 
-    Returns total_matches plus the best matching products with their exact names, prices,
-    colors, and descriptions.
+    Returns total_matches (how many matched in all) plus the best matches with exact names,
+    prices, colors, and a short description.
     """
-    return tools.search_catalogue(query, max_results, min_price, max_price)
+    return tools.search_catalogue(query, max_results, min_price, max_price, category, in_stock_only, in_stock_size)
 
 
 @agent.tool_plain
@@ -202,12 +208,16 @@ async def chat(message: str, deps: ChatDeps, history: list[HistoryMessage]) -> C
         return ChatResult(ChatReply(reply=TOO_COMPLEX_REPLY), remember=False)
 
     out = result.output
-    # Cards are rebuilt from the database, so names, prices, and images on the page are always
-    # real even if the model mistyped something. Unknown ids are simply dropped.
-    cards = tools.product_cards(out.product_ids)
+    # Cards are rebuilt from the catalogue, so names, prices, and images on the page are always
+    # real even if the model mistyped something. Unknown ids are dropped, and at most MAX_CARDS
+    # are kept even if the model listed more.
+    cards = tools.product_cards(out.product_ids, limit=MAX_CARDS)
+    see_all = out.see_all_category if out.see_all_category in tools.CATEGORIES else None
     reply = ChatReply(
         reply=out.reply.strip(),
         results_title=(out.results_title or "Dan's picks") if cards else None,
         products=cards,
+        see_all_category=see_all,
+        see_all_count=tools.category_counts()[see_all] if see_all else None,
     )
     return ChatResult(reply, remember=True)

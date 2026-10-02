@@ -201,7 +201,23 @@ Record of what I asked the AI to do for each problem.
 
 ## Problem 9
 
-_TODO_
+### Prompt 1 – Usability improvements
+
+> Problem 9: Usability improvements
+>
+> Add 2 front-end improvements and 2 agent/backend improvements to make the shop better.
+>
+> Front end:
+> 1. A search bar and category filter on the Products page so shoppers can find items faster.
+> 2. Quick question buttons in the chat box (like "What hoodies do you have?" and "What's in stock?") so shoppers don't have to type.
+>
+> Agent/backend:
+> 1. If a size is out of stock, the agent should suggest other sizes or similar items that are in stock.
+> 2. Limit how many product cards the agent returns (max 6) and save common database lookups so the chat is faster and cheaper.
+>
+> Write output/usability.md as you go: for each improvement, what I added and why it helps a Campus Customs shopper or the business.
+>
+> Make sure all 4 work in the running site, then commit and push.
 
 ## Problem 10
 

@@ -4,6 +4,10 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 MAX_MESSAGE_CHARS = 1000
+MAX_CARDS = 6  # most product cards one chat reply may put on the page
+
+# Shopper-facing categories, derived from each product's garment_type (see tools.category_for).
+Category = Literal["Hoodies", "Crewnecks", "T-Shirts", "Quarter-Zips", "Jackets", "Long Sleeves"]
 
 
 MAX_GUEST_HISTORY = 10
@@ -34,6 +38,7 @@ class ProductCard(BaseModel):
     product_id: str
     name: str
     garment_type: str
+    category: Category
     price: float
     colors: list[str] = []
     description: str
@@ -45,7 +50,9 @@ class ChatReply(BaseModel):
 
     reply: str = Field(description="Dan's message to the shopper, in plain friendly text.")
     results_title: str | None = Field(default=None, description="Heading for the product cards, e.g. 'Hoodies'.")
-    products: list[ProductCard] = Field(default_factory=list, description="Products to show as cards.")
+    products: list[ProductCard] = Field(default_factory=list, description=f"Up to {MAX_CARDS} products to show as cards.")
+    see_all_category: Category | None = Field(default=None, description="Category for a 'See all' link to the Products page.")
+    see_all_count: int | None = Field(default=None, description="How many products that category has.")
 
 
 class AgentReply(BaseModel):
@@ -55,9 +62,14 @@ class AgentReply(BaseModel):
     product_ids: list[str] = Field(
         default_factory=list,
         description=(
-            "product_id of every product to show as a card on the page, best match first. "
-            "Only ids returned by your tools this turn. Empty if no products are relevant."
+            f"product_id of up to {MAX_CARDS} products to show as cards on the page, best match first. "
+            "Only ids returned by your tools. Empty if no products are relevant."
         ),
+    )
+    see_all_category: Category | None = Field(
+        default=None,
+        description="When the shopper is browsing a whole category with more matches than the cards, that "
+        "category, so the page can link to the full list on the Products page. Otherwise null.",
     )
     results_title: str | None = Field(
         default=None,
@@ -66,14 +78,15 @@ class AgentReply(BaseModel):
 
 
 class ProductMatch(BaseModel):
-    """One catalogue search result, as the agent sees it (no image paths or internals)."""
+    """One catalogue search result, as the agent sees it (no image paths or internals).
+    The description is shortened to save tokens; get_product_info has the full text."""
 
     product_id: str
     name: str
-    garment_type: str
+    category: Category
     price: float
     colors: list[str]
-    description: str
+    short_description: str
 
 
 class SearchResults(BaseModel):
@@ -120,6 +133,16 @@ class SizeStock(BaseModel):
     in_stock: bool
 
 
+class SimilarInStock(BaseModel):
+    """A similar product that has the shopper's size in stock (suggested when theirs is sold out)."""
+
+    product_id: str
+    name: str
+    price: float
+    size: str
+    quantity: int
+
+
 class StockInfo(BaseModel):
     """check_stock: live inventory for one product, optionally focused on one size."""
 
@@ -132,6 +155,14 @@ class StockInfo(BaseModel):
     requested_size: str | None = Field(default=None, description="The size the shopper asked about, normalized (e.g. 'M').")
     requested_size_quantity: int | None = None
     requested_size_note: str | None = Field(default=None, description="Plain-language answer for the requested size.")
+    nearest_in_stock_sizes: list[str] = Field(
+        default_factory=list, description="If the requested size is sold out: in-stock sizes closest to it, nearest first."
+    )
+    similar_in_stock: list[SimilarInStock] = Field(
+        default_factory=list,
+        description="If the requested size (or the whole product) is sold out: similar products in the same "
+        "category that have that size in stock.",
+    )
 
 
 # ---------- Customer memory: deps and saved history ----------

@@ -41,6 +41,7 @@ def product_from_row(row: sqlite3.Row) -> dict:
         "product_id": row["product_id"],
         "name": row["name"],
         "garment_type": row["garment_type"],
+        "category": tools.category_for(row["garment_type"]),
         "description": row["description"],
         "colors": json.loads(row["colors"]),
         "search_tags": json.loads(row["search_tags"]),

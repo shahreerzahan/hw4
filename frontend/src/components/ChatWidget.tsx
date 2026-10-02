@@ -20,6 +20,16 @@ interface Message {
 
 let nextId = 1
 
+// One-tap questions under the chat. On a product page they're about that product.
+const GENERAL_QUESTIONS = [
+  'What hoodies do you have?',
+  "What's in stock?",
+  'Gift ideas under $60',
+  'Show me crewnecks',
+  'Anything for my residential college?',
+]
+const PRODUCT_QUESTIONS = ['Is this in stock in M?', 'What sizes are left?', 'Tell me more about this', 'Show me similar items']
+
 function greeting(firstName?: string): Message {
   return {
     id: 0,
@@ -81,9 +91,13 @@ export default function ChatWidget() {
         page_path: m.pagePath,
       }))
 
-  const onSubmit = async (e: FormEvent) => {
+  const onSubmit = (e: FormEvent) => {
     e.preventDefault()
-    const text = input.trim()
+    send(input)
+  }
+
+  const send = async (raw: string) => {
+    const text = raw.trim()
     if (!text || sending) return
 
     const pagePath = location.pathname
@@ -92,8 +106,9 @@ export default function ChatWidget() {
     setInput('')
     setSending(true)
     try {
-      const { reply, results_title, products } = await sendChat(text, pagePath, history)
-      if (products.length) showResults(results_title ?? "Dan's picks", text, products, pagePath)
+      const { reply, results_title, products, see_all_category, see_all_count } = await sendChat(text, pagePath, history)
+      const seeAll = see_all_category && see_all_count ? { category: see_all_category, count: see_all_count } : undefined
+      if (products.length) showResults(results_title ?? "Dan's picks", text, products, pagePath, seeAll)
       setMessages((m) => [
         ...m,
         {
@@ -167,6 +182,14 @@ export default function ChatWidget() {
                 <span />
               </div>
             )}
+          </div>
+
+          <div className="chat-quick" role="group" aria-label="Quick questions">
+            {(location.pathname.startsWith('/products/') ? PRODUCT_QUESTIONS : GENERAL_QUESTIONS).map((q) => (
+              <button key={q} type="button" className="chat-quick-btn" onClick={() => send(q)} disabled={sending}>
+                {q}
+              </button>
+            ))}
           </div>
 
           <form className="chat-input" onSubmit={onSubmit}>
