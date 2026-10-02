@@ -43,6 +43,7 @@ class ProductCard(BaseModel):
     colors: list[str] = []
     description: str
     image_url: str
+    badge: Literal["New", "Low stock"] | None = None
 
 
 class ChatReply(BaseModel):

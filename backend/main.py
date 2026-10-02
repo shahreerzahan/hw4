@@ -35,7 +35,7 @@ app.add_middleware(
 app.include_router(auth.router)
 
 
-def product_from_row(row: sqlite3.Row) -> dict:
+def product_from_row(row: sqlite3.Row, badges: dict[str, str] | None = None) -> dict:
     """Turn a catalogue row into JSON-friendly data for the front end."""
     return {
         "product_id": row["product_id"],
@@ -47,6 +47,7 @@ def product_from_row(row: sqlite3.Row) -> dict:
         "search_tags": json.loads(row["search_tags"]),
         "price": row["price"],
         "image_url": image_url(row["image_file_path"]),
+        "badge": (badges or {}).get(row["product_id"]),
     }
 
 
@@ -71,7 +72,8 @@ def health() -> dict:
 def list_products() -> list[dict]:
     with get_db() as conn:
         rows = conn.execute("SELECT * FROM catalogue ORDER BY name").fetchall()
-    return [product_from_row(r) for r in rows]
+    badges = tools.product_badges()
+    return [product_from_row(r, badges) for r in rows]
 
 
 @app.get("/api/products/{product_id}")
@@ -86,7 +88,7 @@ def get_product(product_id: str) -> dict:
             "SELECT size, quantity FROM inventory WHERE product_id = ?", (product_id,)
         ).fetchall()
 
-    product = product_from_row(row)
+    product = product_from_row(row, tools.product_badges())
     sizes = [{"size": s["size"], "quantity": s["quantity"]} for s in stock]
     sizes.sort(key=lambda s: SIZE_ORDER.index(s["size"]) if s["size"] in SIZE_ORDER else 99)
     product["sizes"] = sizes

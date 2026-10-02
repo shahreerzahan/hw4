@@ -1,7 +1,13 @@
 // Dan the Bulldog: an original flat illustration of our mascot, drawn in the site's earth tones.
 export default function DanTheBulldog({ className, title = 'Dan the Bulldog' }: { className?: string; title?: string }) {
   return (
-    <svg className={className} viewBox="0 0 260 260" role="img" aria-label={title} xmlns="http://www.w3.org/2000/svg">
+    <svg
+      className={`dan-svg${className ? ` ${className}` : ''}`}
+      viewBox="0 0 260 260"
+      role="img"
+      aria-label={title}
+      xmlns="http://www.w3.org/2000/svg"
+    >
       <title>{title}</title>
 
       {/* Collar and tag (behind the jowls) */}
@@ -12,9 +18,11 @@ export default function DanTheBulldog({ className, title = 'Dan the Bulldog' }: 
         Y
       </text>
 
+      {/* Everything above the collar tilts on hover (see .dan-head in index.css) */}
+      <g className="dan-head">
       {/* Small folded rose ears */}
-      <path d="M44 74 C30 56 36 36 58 38 C72 40 80 50 80 62 Z" fill="#8C5A3C" />
-      <path d="M216 74 C230 56 224 36 202 38 C188 40 180 50 180 62 Z" fill="#8C5A3C" />
+      <path className="dan-ear dan-ear-left" d="M44 74 C30 56 36 36 58 38 C72 40 80 50 80 62 Z" fill="#8C5A3C" />
+      <path className="dan-ear dan-ear-right" d="M216 74 C230 56 224 36 202 38 C188 40 180 50 180 62 Z" fill="#8C5A3C" />
 
       {/* Wide, flat head */}
       <path
@@ -71,6 +79,7 @@ export default function DanTheBulldog({ className, title = 'Dan the Bulldog' }: 
       <circle cx="176" cy="140" r="2" fill="#D9C9B5" />
       <circle cx="168" cy="147" r="2" fill="#D9C9B5" />
       <circle cx="180" cy="150" r="2" fill="#D9C9B5" />
+      </g>
     </svg>
   )
 }

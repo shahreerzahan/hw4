@@ -19,6 +19,15 @@ from models import (
 )
 
 MAX_RESULTS = 12  # search results the agent sees (it picks up to MAX_CARDS of them for cards)
+LOW_STOCK_TOTAL = 30  # "Low stock" badge: 30 or fewer units left across all sizes (live)
+# "New" badge: the database has no date-added field, so new arrivals are a list the shop sets.
+NEW_ARRIVALS = {
+    "2025-yale-vs-harvard-t-shirt",
+    "hype-and-vice-yale-university-offside-crewneck",
+    "hype-and-vice-yale-university-premium-crewneck",
+    "yale-maplehouse-diana-mockneck",
+    "brooks-brothers-bomber-jacket-yale",
+}
 SHORT_DESCRIPTION_CHARS = 110
 CATALOGUE_TTL_SECONDS = 300
 SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL"]
@@ -147,6 +156,14 @@ def _stock_by_product(size: str | None) -> dict[str, int]:
     return {r["product_id"]: r["q"] for r in rows}
 
 
+def product_badges() -> dict[str, str]:
+    """Badge per product for the cards: "Low stock" (live from inventory) wins over "New"."""
+    totals = _stock_by_product(None)
+    badges = {pid: "New" for pid in NEW_ARRIVALS}
+    badges.update({pid: "Low stock" for pid, total in totals.items() if 0 < total <= LOW_STOCK_TOTAL})
+    return badges
+
+
 # ---------- Search ----------
 
 def search_catalogue(
@@ -198,6 +215,7 @@ def product_cards(product_ids: list[str], limit: int = MAX_CARDS) -> list[Produc
     """Build page cards for the products the agent picked, from the catalogue. Unknown ids are
     dropped, duplicates removed, the agent's order kept, and at most `limit` cards returned."""
     cards = []
+    badges = product_badges() if product_ids else {}
     for pid in dict.fromkeys(pid.strip() for pid in product_ids if pid.strip()):
         p = get_cached_product(pid)
         if p:
@@ -210,6 +228,7 @@ def product_cards(product_ids: list[str], limit: int = MAX_CARDS) -> list[Produc
                 colors=list(p.colors),
                 description=p.description,
                 image_url=image_url(p.image_file_path),
+                badge=badges.get(p.product_id),
             ))
         if len(cards) >= limit:
             break

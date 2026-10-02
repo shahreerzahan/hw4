@@ -111,6 +111,28 @@ p { margin: 0 0 1rem; }
 }
 .hero-badge strong { font-weight: 500; }
 
+/* Dan tilts his head (and perks his ears) when the pointer is on or near him */
+.dan-head, .dan-ear {
+  transform-box: view-box;
+  transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1); /* slight overshoot = bouncy */
+}
+.dan-head { transform-origin: 130px 205px; }          /* pivot at the neck */
+.dan-ear-left { transform-origin: 70px 64px; }
+.dan-ear-right { transform-origin: 190px 64px; }
+.dan-svg:hover .dan-head,
+.brand:hover .dan-head, .hero-art:hover .dan-head, .dan-band-inner:hover .dan-head,
+.chat-toggle:hover .dan-head, .chat-header:hover .dan-head, .chat-results-heading:hover .dan-head,
+.chat-results-bar:hover .dan-head, .auth-card:hover .dan-head {
+  transform: rotate(-9deg);
+}
+.dan-svg:hover .dan-ear-left, .hero-art:hover .dan-ear-left, .dan-band-inner:hover .dan-ear-left { transform: rotate(-12deg); }
+.dan-svg:hover .dan-ear-right, .hero-art:hover .dan-ear-right, .dan-band-inner:hover .dan-ear-right { transform: rotate(8deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .product-card, .product-card-image, .product-card-image img, .dan-head, .dan-ear { transition: none; }
+  .product-card:hover, .product-card:focus-visible { transform: none; }
+}
+
 /* Value columns */
 .values { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3rem; }
 .value { border-top: 1px solid var(--clay); padding-top: 1.75rem; }
@@ -142,11 +164,30 @@ p { margin: 0 0 1rem; }
 
 /* Product grid & cards */
 .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 3.5rem 2rem; }
-.product-card { display: block; text-decoration: none; color: inherit; }
-.product-card-image {
-  aspect-ratio: 4 / 5; background: var(--sand); border-radius: var(--radius-sm); overflow: hidden;
-  display: grid; place-items: center;
+.product-card {
+  display: block; text-decoration: none; color: inherit;
+  transition: transform 0.45s var(--ease);
 }
+.product-card:hover, .product-card:focus-visible { transform: translateY(-6px); }
+.product-card-image {
+  position: relative; aspect-ratio: 4 / 5; background: var(--sand); border-radius: var(--radius-sm); overflow: hidden;
+  display: grid; place-items: center;
+  transition: box-shadow 0.45s var(--ease);
+}
+.product-card:hover .product-card-image, .product-card:focus-visible .product-card-image {
+  box-shadow: 0 18px 36px -14px rgba(31, 46, 77, 0.28);
+}
+.product-card-body h3 { transition: color 0.3s var(--ease); }
+.product-card:hover .product-card-body h3 { color: var(--accent); }
+
+/* Card badges: quiet pills in the site palette */
+.product-badge {
+  position: absolute; top: 0.85rem; left: 0.85rem; z-index: 1;
+  padding: 0.28rem 0.7rem; border-radius: 999px;
+  font-size: 0.7rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase;
+}
+.product-badge.new { background: var(--accent); color: #fff; }
+.product-badge.low { background: #fff; color: var(--warning); border: 1px solid rgba(154, 106, 0, 0.35); }
 .product-card-image img {
   width: 82%; height: 82%; object-fit: contain;
   transition: transform 0.6s var(--ease);

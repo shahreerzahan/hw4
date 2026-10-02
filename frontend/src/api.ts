@@ -11,7 +11,11 @@ export interface Product {
   search_tags: string[]
   price: number
   image_url: string
+  badge: Badge | null
 }
+
+/** "Low stock" is live (30 or fewer left in total); "New" marks the shop's new arrivals. */
+export type Badge = 'New' | 'Low stock'
 
 export interface SizeStock {
   size: string
@@ -99,6 +103,7 @@ export interface CardProduct {
   colors: string[]
   description: string
   image_url: string
+  badge: Badge | null
 }
 
 export interface ChatReply {

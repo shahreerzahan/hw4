@@ -64,31 +64,7 @@ Record of what I asked the AI to do for each problem.
 >
 > When done, start everything so I can see it in the browser, then commit and push.
 
-### Prompt 2 – Redesign the front end
-
-> Let's rework the frontend of the website - the font should be Roboto, I expect the color tone to be earth tone; also, it should show Dan the Bulldog somewhere; the design should be modern, minimalistic, with white spaces so that it looks spectacular.
-
-### Prompt 3 – Remove product photo backgrounds
-
-> When I am checking out some of the products, they seem to have a black background on their back; bg remove from all the products so that it's a seamless and premium experience for the customers.
-
-### Prompt 4 – Make the backgrounds transparent
-
-> By Background removal, I meant to remove the black bg as shown in the images; not making the background white; re-do the work. if you can, remove the black and I do not want white background; I want it to be transparent
-
-(Attached three screenshots of product photos still showing black and white backgrounds.)
-
-### Prompt 5 – Navy collar for Dan
-
-> Can you make Dan's Collar belt to be blue in stead of green? as given in the phto.
-
-(Attached a photo of Handsome Dan wearing a navy Yale bandana.)
-
-### Prompt 6 – Navy accent color
-
-> In stead of orange/reddish, can you make the colors go with navy blue (#1F2E4D)?
-
-(Attached a screenshot of the Home page headline with the orange accent.)
+(My later design-change prompts for this site, including the redesign, background removal, and navy colors, are listed under Problem 10.)
 
 ## Problem 4
 
@@ -221,7 +197,49 @@ Record of what I asked the AI to do for each problem.
 
 ## Problem 10
 
-_TODO_
+The first five prompts are the design changes I asked for while building the site (originally during Problem 3); Problem 10 builds on them.
+
+### Prompt 1 – Redesign the front end
+
+> Let's rework the frontend of the website - the font should be Roboto, I expect the color tone to be earth tone; also, it should show Dan the Bulldog somewhere; the design should be modern, minimalistic, with white spaces so that it looks spectacular.
+
+### Prompt 2 – Remove product photo backgrounds
+
+> When I am checking out some of the products, they seem to have a black background on their back; bg remove from all the products so that it's a seamless and premium experience for the customers.
+
+### Prompt 3 – Make the backgrounds transparent
+
+> By Background removal, I meant to remove the black bg as shown in the images; not making the background white; re-do the work. if you can, remove the black and I do not want white background; I want it to be transparent
+
+(Attached three screenshots of product photos still showing black and white backgrounds.)
+
+### Prompt 4 – Navy collar for Dan
+
+> Can you make Dan's Collar belt to be blue in stead of green? as given in the phto.
+
+(Attached a photo of Handsome Dan wearing a navy Yale bandana.)
+
+### Prompt 5 – Navy accent color
+
+> In stead of orange/reddish, can you make the colors go with navy blue (#1F2E4D)?
+
+(Attached a screenshot of the Home page headline with the orange accent.)
+
+### Prompt 6 – Style the website
+
+> Problem 10: Style the website
+>
+> Ideas I like:
+>
+> Stick to the design changes I have already recommended and make the following changes. (Add my prior design changes command under Problem 10 to AI_prompts.md)
+>
+> - Product cards that lift up a little when you hover, with smooth animations
+> - A "New" or "Low stock" badge on some product cards, aligning with the current theme
+> - When hover mouse pointer around dan, make it tilt its head slightly - make the web experience dynamic
+>
+> Then write output/design.md: what I changed (including the prior design change commans) and why it should help customers stay longer and buy. Keep it short and concrete.
+>
+> Show me the site when done, then commit and push.
 
 ## Problem 11
 
