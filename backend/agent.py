@@ -15,7 +15,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.usage import UsageLimits
 
 import tools
-from models import ChatReply, ProductMatch
+from models import ChatReply, PriceInfo, ProductInfo, ProductMatch, ProductNotFound, StockInfo
 
 BACKEND = Path(__file__).resolve().parent
 load_dotenv(BACKEND.parent / ".env")
@@ -29,9 +29,9 @@ MODEL = OpenAIChatModel(MODEL_NAME, provider=OpenAIProvider(openai_client=_clien
 # ---- System prompt: read from prompts/prompt.md (edit that file to change Dan's behavior) ----
 PROMPT_PATH = BACKEND / "prompts" / "prompt.md"
 
-# A normal reply is 1–2 model requests (maybe one search, then the answer). These caps stop a
-# confused agent from looping and running up cost.
-LIMITS = UsageLimits(request_limit=5, tool_calls_limit=4)
+# A normal reply is 1–3 model requests (e.g. search, then a price/stock lookup, then the answer).
+# These caps stop a confused agent from looping and running up cost.
+LIMITS = UsageLimits(request_limit=6, tool_calls_limit=6)
 
 agent = Agent(
     MODEL,
@@ -59,6 +59,39 @@ def search_catalogue(
     Returns matching products with their exact names, prices, colors, and descriptions.
     """
     return tools.search_catalogue(query, max_results, min_price, max_price)
+
+
+@agent.tool_plain
+def get_product_info(product: str) -> ProductInfo | ProductNotFound:
+    """Look up one product's full description, garment type, and colors.
+
+    Args:
+        product: The product's exact name (e.g. "Morse 1 4 Zip") or product_id from a search.
+    """
+    return tools.get_product_info(product)
+
+
+@agent.tool_plain
+def get_price(product: str) -> PriceInfo | ProductNotFound:
+    """Look up one product's current price from the database. Use this for every price question.
+
+    Args:
+        product: The product's exact name or product_id.
+    """
+    return tools.get_price(product)
+
+
+@agent.tool_plain
+def check_stock(product: str, size: str | None = None) -> StockInfo | ProductNotFound:
+    """Look up live stock for one product: the quantity in every size, which sizes are sold out,
+    and the total. Use this for every stock, size, or availability question.
+
+    Args:
+        product: The product's exact name or product_id.
+        size: The size the shopper asked about, if any (XS, S, M, L, XL, XXL; "medium" and
+            "2XL" also work). Leave empty to get every size.
+    """
+    return tools.check_stock(product, size)
 
 
 BLOCKED_REPLY = (

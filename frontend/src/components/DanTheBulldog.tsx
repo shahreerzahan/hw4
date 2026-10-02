@@ -5,7 +5,7 @@ export default function DanTheBulldog({ className, title = 'Dan the Bulldog' }: 
       <title>{title}</title>
 
       {/* Collar and tag (behind the jowls) */}
-      <path d="M58 196 C96 214 164 214 202 196 L206 212 C166 232 94 232 54 212 Z" fill="#5E6B4E" />
+      <path d="M58 196 C96 214 164 214 202 196 L206 212 C166 232 94 232 54 212 Z" fill="#1F2E4D" />
       <circle cx="130" cy="236" r="14" fill="#C9A227" />
       <circle cx="130" cy="236" r="10.5" fill="none" stroke="#A88620" strokeWidth="1.5" />
       <text x="130" y="241.5" textAnchor="middle" fontFamily="Roboto, sans-serif" fontWeight="700" fontSize="15" fill="#3A2A22">

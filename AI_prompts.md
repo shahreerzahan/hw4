@@ -78,6 +78,18 @@ Record of what I asked the AI to do for each problem.
 
 (Attached three screenshots of product photos still showing black and white backgrounds.)
 
+### Prompt 5 – Navy collar for Dan
+
+> Can you make Dan's Collar belt to be blue in stead of green? as given in the phto.
+
+(Attached a photo of Handsome Dan wearing a navy Yale bandana.)
+
+### Prompt 6 – Navy accent color
+
+> In stead of orange/reddish, can you make the colors go with navy blue (#1F2E4D)?
+
+(Attached a screenshot of the Home page headline with the orange accent.)
+
 ## Problem 4
 
 ### Prompt 1 – Create account and log in
@@ -137,7 +149,23 @@ Record of what I asked the AI to do for each problem.
 
 ## Problem 6
 
-_TODO_
+### Prompt 1 – Product info and stock tools
+
+> Problem 6: product info and stock
+>
+> Give the agent tools to look up real info from 'campus_customs.db':
+>
+> • Product description
+> • Price
+> • How many are in stock (by size when the customer asks)
+>
+> The agent must always use the database and never make up prices or quantities. If a size is out of stock, it should say so clearly.
+>
+> Update prompt.md so the agent knows to use these tools for price and stock questions, and add the return types for the tools in models.py.
+>
+> Then add a section to output/harness.md listing each tool and explaining which fields I chose for the results and why.
+>
+> Test it in the chat box by asking about a product's price and stock for a size, then commit and push.
 
 ## Problem 7
 

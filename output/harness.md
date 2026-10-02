@@ -146,3 +146,58 @@ Startup, in order (when `main.py` does `import agent`):
 - Each message is answered on its own: Dan doesn't remember earlier messages yet, and chats aren't saved to `chat_messages` yet.
 - Replies are text only; `ChatReply.products` (product cards) is defined but not filled yet.
 - There are no stock or size lookups yet.
+
+## Agent tools: product info, price, and stock
+
+Every tool is a plain Python function in `backend/tools.py` that reads `data/campus_customs.db` **live on every call** (no caching), registered in `backend/agent.py` with `@agent.tool_plain`. Return types are Pydantic models in `backend/models.py`, so the model gets clean, labeled JSON instead of raw rows. `prompts/prompt.md` ("Price, stock, and product details") tells Dan to call `get_price` and `check_stock` for every price or stock question and to quote the numbers exactly.
+
+| Tool | Reads | Returns |
+|---|---|---|
+| `search_catalogue(query, max_results, min_price, max_price)` | `catalogue` | `list[ProductMatch]` |
+| `get_product_info(product)` | `catalogue` | `ProductInfo` or `ProductNotFound` |
+| `get_price(product)` | `catalogue.price` | `PriceInfo` or `ProductNotFound` |
+| `check_stock(product, size=None)` | `inventory` (+ `catalogue` for the name) | `StockInfo` or `ProductNotFound` |
+
+### Finding the product (`find_product`, shared by the three lookups)
+
+The shopper rarely types an exact name, so `product` accepts a `product_id`, an exact name, or a partial name. Matching tries the exact `product_id`, then the exact name (case-insensitive), then the name sharing the most words with the query. Spellings are normalized first: "t-shirt"/"tee" and "quarter zip"/"1/4 zip" match the catalogue's "T Shirt" and "1 4 Zip".
+
+If several products tie (e.g. "dad" matches the Dad Crewneck, Hoodie, and T Shirt), it returns `ProductNotFound` with those names as `suggestions` instead of guessing, and Dan asks which one. The same happens when nothing matches.
+
+### Fields chosen, and why
+
+**`ProductMatch`** (search results): `product_id`, `name`, `garment_type`, `price`, `colors`, `description`
+- Enough for Dan to recommend and compare products in one step. `product_id` lets him pass the exact product to the next lookup.
+- Left out: `image_file_path` (the model can't use it, and paths stay internal) and `search_tags` (used only for ranking, and noisy to show).
+
+**`ProductInfo`** (`get_product_info`): `product_id`, `name`, `garment_type`, `description`, `colors`
+- The full description and colors answer "tell me about…" and "what color is…".
+- Price and stock are left out on purpose, so they only ever come from the dedicated tools that the prompt requires for those questions.
+
+**`PriceInfo`** (`get_price`): `product_id`, `name`, `price`, `currency="USD"`
+- Kept minimal so the answer is unambiguous. `name` confirms which product was matched (so Dan doesn't quote a price for the wrong item), and `currency` keeps Dan from guessing the units.
+
+**`StockInfo`** (`check_stock`): the per-size data plus pre-computed summaries.
+- `sizes`: a list of `SizeStock(size, quantity, in_stock)` in XS→XXL order, so Dan can give exact quantities per size.
+- `available_sizes` / `sold_out_sizes`: computed in Python so the model doesn't have to filter numbers, which lowers the chance of a mistake like calling a 0 "in stock".
+- `total_in_stock`: answers "do you have any?" and spots "sold out in every size".
+- `requested_size`: the shopper's size normalized ("medium" → `M`, "2XL" → `XXL`).
+- `requested_size_quantity` and `requested_size_note`: a plain-language answer such as "Size L is SOLD OUT (0 left). In stock: XS, S, M, XL, XXL." This makes the sold-out case impossible to miss, and it also covers sizes the product doesn't come in (e.g. "4XL").
+
+**`ProductNotFound`**: `found=false`, `query`, `message`, `suggestions`
+- An explicit "not found / ambiguous" result instead of an error, so Dan can ask a follow-up instead of inventing an answer.
+
+### Tested (answers checked against the database)
+
+| Shopper asked | Tool(s) called | Dan said | DB |
+|---|---|---|---|
+| Price of the Baseball Left Chest Crewneck | `get_price` | $58.00 | 58.0 ✓ |
+| Baseball Left Chest Crewneck in XL? | `check_stock(size=XL)` | Sold out in XL; S, M, L, XXL available | XL=0 ✓ |
+| How many medium Baseball Crewnecks? | `check_stock(size=M)` | 5 left | M=5 ✓ |
+| Morse quarter zip in large? | `check_stock(size=L)` | Sold out in L; XS, S, M, XL, XXL available | L=0 ✓ |
+| Yale Dad Hoodie, all sizes | `check_stock` | XS 5, S 5, M 12, L 20, XL 12, XXL 15 (69 total) | ✓ |
+| Yale Mom Hoodie in XS? | `search_catalogue` → `check_stock(size=XS)` | 25 left | XS=25 ✓ |
+| Basic Hoodie Big Yale in 4XL? | `check_stock(size=4XL)` | Not offered in 4XL; comes in XS–XXL | ✓ |
+| "The jacket" in medium? | `search_catalogue` | Asked which jacket, listing options | (ambiguous) ✓ |
+
+In the website's chat box (on the Morse 1/4 Zip page): "How much is the Morse 1 4 Zip?" got "$72.00", and "in large? What about medium?" got "Large is sold out… Medium is available, with 8 left". Both match the size tiles on the same page.
