@@ -102,4 +102,28 @@ export interface ChatReply {
   products: CardProduct[]
 }
 
-export const sendChat = (message: string) => postJson<ChatReply>('/api/chat', { message })
+/** An earlier message sent back with guest requests, so Dan remembers the conversation. */
+export interface HistoryMessage {
+  role: 'user' | 'assistant'
+  content: string
+  product_ids?: string[]
+  page_path?: string
+}
+
+export interface ChatHistoryItem {
+  role: 'user' | 'assistant'
+  content: string
+  results_title: string | null
+  products: CardProduct[]
+  created_at: string
+}
+
+export const sendChat = (message: string, pagePath: string, history: HistoryMessage[] = []) =>
+  postJson<ChatReply>('/api/chat', { message, page_path: pagePath, history })
+
+export const fetchChatHistory = () => getJson<ChatHistoryItem[]>('/api/chat/history')
+
+export async function clearChatHistory(): Promise<void> {
+  const res = await request('/api/chat/history', { method: 'DELETE' })
+  if (!res.ok) throw new Error('Could not clear your chat history.')
+}

@@ -277,6 +277,11 @@ p { margin: 0 0 1rem; }
 .chat-title { flex: 1; line-height: 1.3; }
 .chat-title strong { display: block; font-weight: 500; }
 .chat-title span { font-size: 0.8rem; color: var(--bark); }
+.chat-clear {
+  background: none; border: 1px solid var(--clay); border-radius: 999px; color: var(--bark);
+  font: 500 0.78rem 'Roboto', sans-serif; padding: 0.25rem 0.7rem; cursor: pointer;
+}
+.chat-clear:hover { border-color: var(--accent); color: var(--accent); }
 .chat-close { background: none; border: none; color: var(--bark); font-size: 1.5rem; cursor: pointer; line-height: 1; }
 .chat-body {
   flex: 1; padding: 1.25rem; overflow-y: auto; background: var(--cream);

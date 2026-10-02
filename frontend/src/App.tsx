@@ -4,6 +4,7 @@ import Footer from './components/Footer'
 import ChatWidget from './components/ChatWidget'
 import ChatResultsPanel from './components/ChatResultsPanel'
 import ScrollToTop from './components/ScrollToTop'
+import { useAuth } from './auth'
 import Home from './pages/Home'
 import Products from './pages/Products'
 import ProductPage from './pages/ProductPage'
@@ -13,6 +14,8 @@ import CreateAccount from './pages/CreateAccount'
 import NotFound from './pages/NotFound'
 
 export default function App() {
+  const { user, loading } = useAuth()
+
   return (
     <div className="app">
       <ScrollToTop />
@@ -30,7 +33,8 @@ export default function App() {
         </Routes>
       </main>
       <Footer />
-      <ChatWidget />
+      {/* Remount the chat per account so each shopper sees only their own history. */}
+      {!loading && <ChatWidget key={user ? `user-${user.id}` : 'guest'} />}
     </div>
   )
 }

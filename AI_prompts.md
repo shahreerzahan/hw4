@@ -185,7 +185,19 @@ Record of what I asked the AI to do for each problem.
 
 ## Problem 8
 
-_TODO_
+### Prompt 1 – Customer memory
+
+> Problem 8: Customer memory
+>
+> When a shopper is logged in, save their chat history in the database (in a new table) and load it again when they come back. Guests can still chat, but their history doesn't need to be saved.
+>
+> The agent should know who is chatting (name and email). Pass that in using agent deps.
+>
+> Also pass the page the shopper is on, so if they're on a product page and ask "do you have this in pink?", the agent knows which product they mean.
+>
+> Then add a section to output/harness.md explaining how chat history is saved, what customer info the agent sees, and how the page info is passed.
+>
+> Test it: log in, chat, log out, and back in to see the history, and ask "do you have this in another color?" on a product page. Commit and push.
 
 ## Problem 9
 

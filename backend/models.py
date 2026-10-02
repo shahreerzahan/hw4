@@ -1,13 +1,30 @@
 """Pydantic / PydanticAI structured types shared by the chat API, the agent, and its tools."""
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 MAX_MESSAGE_CHARS = 1000
+
+
+MAX_GUEST_HISTORY = 10
+
+
+class HistoryMessage(BaseModel):
+    """One earlier chat message. Guests' chat boxes send their recent messages back with each
+    request (they aren't saved on the server); logged-in shoppers' history comes from the DB."""
+
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=4000)
+    product_ids: list[str] = Field(default_factory=list, max_length=30)
+    page_path: str | None = Field(default=None, max_length=200, description="Page the message was sent from.")
 
 
 class ChatRequest(BaseModel):
     """What the chat box sends to POST /api/chat."""
 
     message: str = Field(min_length=1, max_length=MAX_MESSAGE_CHARS)
+    page_path: str | None = Field(default=None, max_length=200, description="e.g. /products/morse-1-4-zip")
+    history: list[HistoryMessage] = Field(default_factory=list, max_length=MAX_GUEST_HISTORY)
 
 
 class ProductCard(BaseModel):
@@ -115,3 +132,33 @@ class StockInfo(BaseModel):
     requested_size: str | None = Field(default=None, description="The size the shopper asked about, normalized (e.g. 'M').")
     requested_size_quantity: int | None = None
     requested_size_note: str | None = Field(default=None, description="Plain-language answer for the requested size.")
+
+
+# ---------- Customer memory: deps and saved history ----------
+
+class CustomerInfo(BaseModel):
+    """Who is chatting (logged-in shoppers only). Passed to the agent through deps."""
+
+    user_id: int
+    first_name: str
+    last_name: str
+    email: str
+
+
+class PageInfo(BaseModel):
+    """The page the shopper is looking at, resolved by the backend from the URL path."""
+
+    path: str
+    page_type: Literal["home", "products", "product", "about", "login", "create-account", "other"]
+    product_id: str | None = None
+    product_name: str | None = None
+
+
+class ChatHistoryItem(BaseModel):
+    """One saved message, as GET /api/chat/history returns it to the chat box."""
+
+    role: Literal["user", "assistant"]
+    content: str
+    results_title: str | None = None
+    products: list[ProductCard] = Field(default_factory=list)
+    created_at: str

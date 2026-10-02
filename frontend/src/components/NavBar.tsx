@@ -1,16 +1,19 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import DanTheBulldog from './DanTheBulldog'
 import { useAuth } from '../auth'
+import { useChatResults } from '../chatResults'
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   isActive ? 'nav-link active' : 'nav-link'
 
 export default function NavBar() {
   const { user, loading, logout } = useAuth()
+  const { clearResults } = useChatResults()
   const navigate = useNavigate()
 
   const onLogout = async () => {
     await logout()
+    clearResults() // don't leave the last shopper's results on screen
     navigate('/')
   }
 

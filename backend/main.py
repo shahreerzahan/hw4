@@ -4,19 +4,23 @@ import logging
 import sqlite3
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Cookie, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic_ai.exceptions import AgentRunError, ModelAPIError
 
 import agent
 import auth
-from db import CUTOUTS_DIR, PRODUCTS_DIR, get_db, image_url
-from models import ChatReply, ChatRequest
+import chat_history
+import tools
+from db import CUTOUTS_DIR, PRODUCTS_DIR, get_db, image_url, init_db
+from models import ChatHistoryItem, ChatReply, ChatRequest, CustomerInfo
 
 log = logging.getLogger("campus_customs")
 
 SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL"]
+
+init_db()  # creates the chat_history table if it doesn't exist yet
 
 app = FastAPI(title="Campus Customs API")
 
@@ -88,17 +92,56 @@ def get_product(product_id: str) -> dict:
     return product
 
 
+def current_customer(cc_session: str | None) -> CustomerInfo | None:
+    """The logged-in shopper from the session cookie, or None for guests."""
+    user_id = auth.current_user_id(cc_session)
+    if user_id is None:
+        return None
+    u = auth.public_user(auth.get_user(user_id))
+    return CustomerInfo(user_id=u["id"], first_name=u["first_name"], last_name=u["last_name"], email=u["email"])
+
+
 @app.post("/api/chat")
-async def chat(body: ChatRequest) -> ChatReply:
-    """The website's chat box posts each message here; Dan (the PydanticAI agent) replies."""
+async def chat(body: ChatRequest, cc_session: str | None = Cookie(default=None)) -> ChatReply:
+    """The website's chat box posts each message here; Dan (the PydanticAI agent) replies.
+
+    Logged in: memory comes from the chat_history table and the turn is saved there.
+    Guest: memory is the recent messages the chat box sends back; nothing is saved."""
     message = body.message.strip()
     if not message:
         raise HTTPException(status_code=400, detail="Please type a message.")
+
+    customer = current_customer(cc_session)
+    deps = agent.ChatDeps(customer=customer, page=tools.describe_page(body.page_path))
+    history = chat_history.recent_for_agent(customer.user_id) if customer else body.history
+
     try:
-        return await agent.chat(message)
+        result = await agent.chat(message, deps, history)
     except (ModelAPIError, AgentRunError) as e:
         log.warning("Chat agent failed: %s: %s", type(e).__name__, e)
         raise HTTPException(
             status_code=503,
             detail="Dan is taking a quick nap and can't chat right now. Please try again in a moment.",
         )
+
+    if customer and result.remember:
+        chat_history.save_turn(
+            customer.user_id, message, result.reply.reply,
+            [p.product_id for p in result.reply.products], result.reply.results_title, deps.page.path,
+        )
+    return result.reply
+
+
+@app.get("/api/chat/history")
+def get_chat_history(cc_session: str | None = Cookie(default=None)) -> list[ChatHistoryItem]:
+    """A logged-in shopper's saved chat, oldest first. Guests get an empty list."""
+    customer = current_customer(cc_session)
+    return chat_history.history_for_ui(customer.user_id) if customer else []
+
+
+@app.delete("/api/chat/history")
+def delete_chat_history(cc_session: str | None = Cookie(default=None)) -> dict:
+    customer = current_customer(cc_session)
+    if customer is None:
+        raise HTTPException(status_code=401, detail="Log in to manage your chat history.")
+    return {"deleted": chat_history.clear(customer.user_id)}

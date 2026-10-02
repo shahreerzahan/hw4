@@ -32,3 +32,24 @@ def image_url(image_file_path: str) -> str:
     original = Path(image_file_path).name
     cutout = Path(original).stem + ".webp"
     return "/images/" + (cutout if (CUTOUTS_DIR / cutout).is_file() else original)
+
+
+CHAT_HISTORY_SCHEMA = """
+CREATE TABLE IF NOT EXISTS chat_history (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id       INTEGER NOT NULL REFERENCES users(id),
+    role          TEXT    NOT NULL CHECK (role IN ('user', 'assistant')),
+    content       TEXT    NOT NULL,
+    product_ids   TEXT,             -- JSON list of product_ids shown as cards (assistant only)
+    results_title TEXT,             -- heading for those cards
+    page_path     TEXT,             -- page the shopper was on, e.g. /products/morse-1-4-zip
+    created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_chat_history_user ON chat_history (user_id, id);
+"""
+
+
+def init_db() -> None:
+    """Create tables this app adds to the seed database (safe to run every startup)."""
+    with get_db() as conn:
+        conn.executescript(CHAT_HISTORY_SCHEMA)

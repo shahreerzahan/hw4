@@ -7,7 +7,8 @@ import sqlite3
 
 from db import get_db, image_url
 from models import (
-    PriceInfo, ProductCard, ProductInfo, ProductMatch, ProductNotFound, SearchResults, SizeStock, StockInfo,
+    PageInfo, PriceInfo, ProductCard, ProductInfo, ProductMatch, ProductNotFound, SearchResults, SizeStock,
+    StockInfo,
 )
 
 MAX_RESULTS = 30  # enough to show every product of one type (e.g. all 27 hoodies) as cards
@@ -222,3 +223,24 @@ def check_stock(product: str, size: str | None = None) -> StockInfo | ProductNot
             info.requested_size_quantity = match.quantity
             info.requested_size_note = f"Size {match.size} is in stock: {match.quantity} left."
     return info
+
+
+# ---------- Which page is the shopper on? ----------
+
+_PAGE_TYPES = {"/": "home", "/products": "products", "/about": "about", "/login": "login",
+               "/create-account": "create-account"}
+
+
+def describe_page(path: str | None) -> PageInfo:
+    """Turn the browser's URL path into PageInfo. For /products/<id>, the product is looked up
+    in the database, so the agent only ever sees a real product (never one typed by the client)."""
+    path = (path or "/").split("?")[0].split("#")[0].rstrip("/") or "/"
+    if path in _PAGE_TYPES:
+        return PageInfo(path=path, page_type=_PAGE_TYPES[path])
+    m = re.fullmatch(r"/products/([a-z0-9-]+)", path)
+    if m:
+        with get_db() as conn:
+            row = conn.execute("SELECT product_id, name FROM catalogue WHERE product_id = ?", (m.group(1),)).fetchone()
+        if row:
+            return PageInfo(path=path, page_type="product", product_id=row["product_id"], product_name=row["name"])
+    return PageInfo(path=path, page_type="other")

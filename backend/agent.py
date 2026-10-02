@@ -1,22 +1,27 @@
-"""Campus Customs chat agent: model wiring, system prompt, and tool registration.
+"""Campus Customs chat agent: model wiring, system prompt, deps, and tool registration.
 
-main.py calls `chat(message)` for every message typed in the website's chat box. The agent
-answers with an AgentReply (text + product_ids); chat() turns the ids into product cards.
+main.py calls `chat(message, deps, history)` for every message typed in the website's chat box.
+The agent answers with an AgentReply (text + product_ids); chat() turns the ids into product cards.
 """
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from portkey_ai import PORTKEY_GATEWAY_URL
-from pydantic_ai import Agent
+from pydantic_ai import Agent, RunContext
 from pydantic_ai.exceptions import ContentFilterError, ModelHTTPError, UsageLimitExceeded
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, UserPromptPart
 from pydantic_ai.usage import UsageLimits
 
 import tools
-from models import AgentReply, ChatReply, PriceInfo, ProductInfo, ProductNotFound, SearchResults, StockInfo
+from models import (
+    AgentReply, ChatReply, CustomerInfo, HistoryMessage, PageInfo, PriceInfo, ProductInfo, ProductNotFound,
+    SearchResults, StockInfo,
+)
 
 BACKEND = Path(__file__).resolve().parent
 load_dotenv(BACKEND.parent / ".env")
@@ -34,12 +39,43 @@ PROMPT_PATH = BACKEND / "prompts" / "prompt.md"
 # These caps stop a confused agent from looping and running up cost.
 LIMITS = UsageLimits(request_limit=6, tool_calls_limit=6)
 
+
+
+@dataclass
+class ChatDeps:
+    """Per-request context for the agent. Built by main.py from the login cookie and the page
+    URL; the shopper can't edit it through the chat."""
+
+    customer: CustomerInfo | None  # None for guests
+    page: PageInfo
+
+
 # Structured output: a short chat reply plus the product_ids to show as cards on the page.
 agent = Agent(
     MODEL,
+    deps_type=ChatDeps,
     output_type=AgentReply,
     instructions=PROMPT_PATH.read_text(),
 )
+
+
+@agent.instructions
+def shopper_context(ctx: RunContext[ChatDeps]) -> str:
+    """Added to the system prompt on every request: who is chatting and which page they're on."""
+    c, page = ctx.deps.customer, ctx.deps.page
+    who = (
+        f"The shopper is logged in as {c.first_name} {c.last_name} ({c.email})."
+        if c else "The shopper is a guest (not logged in). You don't know their name or email."
+    )
+    if page.page_type == "product":
+        where = (
+            f"They are on the product page for \"{page.product_name}\" (product_id: {page.product_id}). "
+            "If they say \"this\", \"it\", or \"this one\" without naming a product, they mean THIS product, "
+            "even if earlier messages talked about other products."
+        )
+    else:
+        where = f"They are on the {page.page_type} page ({page.path})."
+    return f"## Current shopper context\n\n- {who}\n- {where}"
 
 
 @agent.tool_plain
@@ -113,28 +149,65 @@ def _is_content_filter(error: ModelHTTPError) -> bool:
     return body.get("code") == "content_filter"
 
 
-async def chat(message: str) -> ChatReply:
-    """Run the agent on one shopper message and return Dan's reply.
+def with_page_note(message: str, page: PageInfo) -> str:
+    """Prefix a shopper message with the product page it was sent from (added by the server, so
+    "this" can be resolved per message, even in old history)."""
+    if page.page_type == "product":
+        return f"[Sent from the product page: {page.product_name} (product_id: {page.product_id})]\n{message}"
+    return message
+
+
+def to_model_messages(history: list[HistoryMessage]) -> list[ModelMessage]:
+    """Earlier chat messages as PydanticAI message history (oldest first), so Dan remembers the
+    conversation. Shopper turns note the product page they were sent from; assistant turns note
+    which product cards were shown, so follow-ups like "the second one" can be resolved."""
+    messages: list[ModelMessage] = []
+    for h in history:
+        if h.role == "user":
+            text = with_page_note(h.content, tools.describe_page(h.page_path))
+            messages.append(ModelRequest(parts=[UserPromptPart(content=text)]))
+        else:
+            text = h.content
+            if h.product_ids:
+                text += "\n[Product cards shown: " + ", ".join(h.product_ids) + "]"
+            messages.append(ModelResponse(parts=[TextPart(content=text)]))
+    return messages
+
+
+@dataclass
+class ChatResult:
+    reply: ChatReply
+    remember: bool  # False if the turn was blocked, so it isn't saved or replayed as memory
+
+
+async def chat(message: str, deps: ChatDeps, history: list[HistoryMessage]) -> ChatResult:
+    """Run the agent on one shopper message (with earlier messages as memory) and return Dan's reply.
 
     The model provider's safety filter and our usage caps become friendly replies; any other
     model error (e.g. the API is down) is raised for main.py to turn into an HTTP error."""
     try:
-        result = await agent.run(message, usage_limits=LIMITS)
+        result = await agent.run(
+            with_page_note(message, deps.page),
+            deps=deps,
+            message_history=to_model_messages(history),
+            usage_limits=LIMITS,
+        )
     except ContentFilterError:
-        return ChatReply(reply=BLOCKED_REPLY)
+        return ChatResult(ChatReply(reply=BLOCKED_REPLY), remember=False)
     except ModelHTTPError as e:
         if _is_content_filter(e):
-            return ChatReply(reply=BLOCKED_REPLY)
+            return ChatResult(ChatReply(reply=BLOCKED_REPLY), remember=False)
         raise
     except UsageLimitExceeded:
-        return ChatReply(reply=TOO_COMPLEX_REPLY)
+        return ChatResult(ChatReply(reply=TOO_COMPLEX_REPLY), remember=False)
 
     out = result.output
     # Cards are rebuilt from the database, so names, prices, and images on the page are always
     # real even if the model mistyped something. Unknown ids are simply dropped.
     cards = tools.product_cards(out.product_ids)
-    return ChatReply(
+    reply = ChatReply(
         reply=out.reply.strip(),
         results_title=(out.results_title or "Dan's picks") if cards else None,
         products=cards,
     )
+    return ChatResult(reply, remember=True)

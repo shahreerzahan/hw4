@@ -51,6 +51,21 @@ File: `data/campus_customs.db` (SQLite). Four tables: `catalogue` (102 products)
 | `products_json` | TEXT (JSON, nullable) | Products the assistant recommended in that reply (full catalogue fields), so product cards can be redrawn when history reloads. |
 | `created_at` | TEXT, default now | Timestamp for ordering and showing history. |
 
+### `chat_history`: saved chats for logged-in shoppers (added by this app)
+
+Created at backend startup by `db.init_db()` (`CREATE TABLE IF NOT EXISTS`), so a fresh copy of the course database gets it automatically. The seed `chat_messages` table is left untouched.
+
+| Field | Type | Why it matters |
+|---|---|---|
+| `id` | INTEGER, primary key | Keeps messages in order. |
+| `user_id` | INTEGER, FK → `users` | Whose chat this is; history is only ever loaded for the logged-in user. |
+| `role` | TEXT (`user` / `assistant`) | Who said it; needed to rebuild the conversation for the agent and the chat bubbles. |
+| `content` | TEXT | The message text. |
+| `product_ids` | TEXT (JSON list) | Products Dan showed as cards with that reply, so the cards can be re-shown later and follow-ups ("the second one") make sense. |
+| `results_title` | TEXT | Heading for those cards. |
+| `page_path` | TEXT | Page the message was sent from, so "this" in old messages still points to the right product. |
+| `created_at` | TEXT, default now | When it was said. |
+
 ## Authentication
 
 Code: `backend/auth.py` (routes under `/api/auth`), `frontend/src/pages/Login.tsx`, `frontend/src/pages/CreateAccount.tsx`, `frontend/src/components/AuthProvider.tsx`.
@@ -250,3 +265,52 @@ Dan may only use ids returned by his tools in that turn.
 
 - **API:** "what hoodies do you have?" → 27 cards titled "Hoodies", every one a hoodie type. "How much is the Morse 1 4 Zip?" → 1 card. "hi dan!" → 0 cards. "gift ideas for my mom under $70?" → 2 cards (Yale Mom Crewneck $58, Yale Mom Hoodie $68).
 - **In the website's chat box (headless Chrome, Home page):** asking "what hoodies do you have?" showed the panel "Dan found 27 items · Hoodies" with 27 cards. All 27 images loaded, and the reply bubble had a "See all 27 on the page" chip. Clicking the first card opened `/products/ua-gameday-double-knit-hood` at the top of the page, with the results folded into the bar. "Show" brought all 27 back.
+
+## Customer memory: chat history, customer info, and page context
+
+### How chat history is saved
+
+| | Logged-in shopper | Guest |
+|---|---|---|
+| Who is it? | Session cookie → `users` row | No cookie |
+| Saved? | Yes, in the `chat_history` table (see Database) | **No.** Nothing is written to the database |
+| Memory for Dan | Last 20 messages, loaded from `chat_history` on every request | Last 10 messages, sent back by the chat box with each request (lost when the page is closed) |
+| Back next visit? | Yes: `GET /api/chat/history` reloads the conversation into the chat box | No |
+
+- **Saving:** after each reply, `POST /api/chat` stores two rows in `chat_history` (`chat_history.save_turn`): the shopper's message, and Dan's reply with the card `product_ids`, `results_title`, and the `page_path`. Messages blocked by the provider's content filter aren't saved, so a blocked message can't keep breaking every later reply in the conversation.
+- **Loading for the agent:** `chat_history.recent_for_agent(user_id)` becomes PydanticAI `message_history` (`agent.to_model_messages`), as user/assistant messages, oldest first. Assistant turns carry a note of which cards were shown, and user turns carry a note of the product page they came from.
+- **Loading for the chat box:** when a shopper logs in, `ChatWidget` calls `GET /api/chat/history` and shows the old messages. Card buttons ("See all 2 on the page") still work: the cards are rebuilt from the catalogue, so prices and photos are current.
+- **Switching accounts:** `App.tsx` remounts the chat widget with `key={user id or "guest"}`, so logging out instantly clears the chat on screen, and one account never sees another's messages. Logging out also clears any of Dan's cards on the page.
+- **Privacy controls:** the chat header shows "Chatting as {name} · history saved" or "Guest · log in to save your chat". Logged-in shoppers can press **Clear** (`DELETE /api/chat/history`).
+
+### What customer info the agent sees (agent deps)
+
+`agent.py` defines the deps passed into every run:
+
+```python
+@dataclass
+class ChatDeps:
+    customer: CustomerInfo | None   # None for guests
+    page: PageInfo
+```
+
+- `CustomerInfo` (`models.py`) has `user_id`, `first_name`, `last_name`, and `email`. `main.py` builds it from the session cookie (`current_customer()` → `users` table), never from anything typed in the chat, so a shopper can't pretend to be someone else.
+- An `@agent.instructions` function (`shopper_context`) turns the deps into a short **Current shopper context** section added to the system prompt on each request, e.g. "The shopper is logged in as Test User (test@campuscustoms.yale.edu)", or "The shopper is a guest… You don't know their name or email."
+- The model never sees `user_id`, the password hash, or any other user. `prompt.md` says to use the first name naturally, mention the email only if asked which account they're on, and never guess anything about other customers.
+
+### How the page info is passed
+
+1. With every message, the chat box sends `page_path` (the current URL, e.g. `/products/morse-logo-t-shirt`).
+2. `tools.describe_page()` turns it into `PageInfo` (`page_type`, `product_id`, `product_name`). For `/products/<id>` it **looks the id up in the catalogue**, so only real products get through; unknown ids become `page_type="other"`.
+3. `PageInfo` goes into `ChatDeps.page`. The shopper-context instructions say which page they're on, and that "this" or "it" means this product even if earlier messages talked about other products.
+4. The server also prefixes the message itself with `[Sent from the product page: Morse Logo T Shirt (product_id: morse-logo-t-shirt)]`. The same note is rebuilt for old messages from their saved `page_path`. This was needed: in testing, with only the system-prompt context, Dan answered "this" about a hoodie from earlier in the conversation instead of the shirt on screen. With the per-message note, he picks the right product.
+5. **Colors:** each product is one colorway (`colors` lists every color in the design, and stock is by size only). So for "this in pink / another color", the prompt has Dan say which colorway it is, be clear it isn't sold in other colors, and search for similar items in the color the shopper wants.
+
+### Tested (in the website, headless Chrome, as the test user)
+
+1. **Log in** → nav shows "Hi, Test". Chat header: "Chatting as Test · history saved". Greeting: "Woof, hi Test!".
+2. **Chat:** "I need a gift for my grandpa" → 2 cards (Grandpa Crewneck and Hoodie). "How much is the hoodie one?" → "The Yale Grandpa Hoodie is $68.00" (resolved from memory).
+3. **Log out** → chat resets to the guest greeting ("Guest · log in to save your chat"). `GET /api/chat/history` returns `[]`.
+4. **Log back in** → all 4 messages are restored in the chat box, with their card buttons. Asked "remind me which hoodie you suggested earlier?", Dan answered correctly from the saved history.
+5. **Product page** `/products/morse-logo-t-shirt`, "Do you have this in another color?" → "The Morse Logo T Shirt is sold as a heather gray design; the other listed colors (white, black, and red) are part of the printed crest…". It answered about the right product even after the earlier hoodie conversation. On the Yale Dad T Shirt page, "do you have this in pink?" → not sold in pink, and Dan suggested the dusty coral Big Yale Tri Blend T Shirt as a card.
+6. **Guest:** "Show me crewnecks for Davenport" then "How much is it?" → "$58.00" (memory within the visit). The database had **0** rows for the guest; only the test user's 6 rows (3 turns) were saved.
