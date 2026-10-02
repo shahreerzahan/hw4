@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Campus Customs – App Check (Problem 11)</title>
+  <style>
+    :root { --navy: #1f2e4d; --cream: #faf7f2; --sand: #f1ebe1; --clay: #e4d9ca; --text: #2b2420; --muted: #6f625a; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--cream); color: var(--text); font: 16px/1.6 Roboto, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 1000px; margin: 0 auto; padding: 3rem 1.5rem 4rem; }
+    header { margin-bottom: 2.5rem; }
+    .eyebrow { text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.75rem; font-weight: 600; color: var(--navy); }
+    h1 { font-weight: 300; font-size: 2.4rem; margin: 0.3rem 0 0.6rem; letter-spacing: -0.02em; }
+    .intro { color: var(--muted); margin: 0; }
+    nav ol { margin: 1rem 0 0; padding-left: 1.2rem; color: var(--muted); }
+    nav a { color: var(--navy); }
+    section { background: #fff; border: 1px solid var(--clay); border-radius: 16px; padding: 1.75rem; margin-bottom: 2rem; }
+    h2 { margin: 0 0 0.25rem; font-size: 1.35rem; font-weight: 500; color: var(--navy); }
+    .file { font: 0.85rem ui-monospace, Menlo, monospace; color: var(--muted); margin: 0 0 1rem; }
+    figure { margin: 0; }
+    figure a { display: block; background: var(--sand); border-radius: 12px; padding: 0.75rem; }
+    figure img { display: block; max-width: 100%; max-height: 640px; margin: 0 auto; border-radius: 8px; box-shadow: 0 6px 20px rgba(31, 46, 77, 0.12); }
+    figcaption { font-size: 0.82rem; color: var(--muted); margin-top: 0.5rem; text-align: center; }
+    .proves { margin: 1.25rem 0 0; padding: 0.9rem 1.1rem; background: var(--cream); border-left: 3px solid var(--navy); border-radius: 0 10px 10px 0; }
+    .proves strong { color: var(--navy); }
+    footer { color: var(--muted); font-size: 0.85rem; text-align: center; margin-top: 3rem; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">Homework 4 · Problem 11</div>
+    <h1>Campus Customs: App Check</h1>
+    <p class="intro">Screenshots from testing the running site (React + Vite front end, FastAPI + PydanticAI backend, data from <code>campus_customs.db</code>). Click any screenshot to open it full size.</p>
+    <nav>
+      <ol>
+        <li><a href="#search">The chat runs a real product search</a></li>
+        <li><a href="#cards">Asking about hoodies puts product cards on the page</a></li>
+        <li><a href="#usability">Problem 9 improvement: search and category filter</a></li>
+      </ol>
+    </nav>
+  </header>
+
+  <section id="search">
+    <h2>1. The chat runs a real product search</h2>
+    <p class="file">app_check_images/inventory.png</p>
+    <figure>
+      <a href="app_check_images/inventory.png" target="_blank"><img src="app_check_images/inventory.png" alt="Chat: the shopper asks for blue hoodies for men and Dan replies that there are 20 blue hoodie options and shows 6 favorites"></a>
+      <figcaption>Guest chat: “Show me some blue hoodies for men.”</figcaption>
+    </figure>
+    <p class="proves"><strong>Proves:</strong> Dan answers from the database, not from memory. He searched the catalogue, reported <strong>20</strong> blue hoodie options (the same count the catalogue search returns), and put 6 of them on the page as cards (“See all 6 on the page”), with a pointer to the full list on the Products page.</p>
+  </section>
+
+  <section id="cards">
+    <h2>2. Asking about hoodies makes product cards appear on the page</h2>
+    <p class="file">app_check_images/search_cards.png</p>
+    <figure>
+      <a href="app_check_images/search_cards.png" target="_blank"><img src="app_check_images/search_cards.png" alt="The page shows 'Dan found 6 items, Hoodies' with hoodie product cards next to the chat answering 'What hoodies do you have?'"></a>
+      <figcaption>Chat: “What hoodies do you have?”, and the page updates with a “Hoodies” results section.</figcaption>
+    </figure>
+    <p class="proves"><strong>Proves:</strong> the agent returns its results in a structured format, and the website turns them into clickable product cards on the page (photo, name, price, short description): “Dan found 6 items · Hoodies”. Dan's reply says the shop has <strong>27</strong> hoodies, which matches the database, and shows 6 picks, the card limit from Problem 9.</p>
+  </section>
+
+  <section id="usability">
+    <h2>3. Problem 9 improvement: search bar and category filter on the Products page</h2>
+    <p class="file">app_check_images/usability.png</p>
+    <figure>
+      <a href="app_check_images/usability.png" target="_blank"><img src="app_check_images/usability.png" alt="Products page with the search bar and category buttons; Long Sleeves is selected, showing 2 items"></a>
+      <figcaption>Products page: search bar plus category buttons with counts, with “Long Sleeves” selected.</figcaption>
+    </figure>
+    <p class="proves"><strong>Proves:</strong> shoppers can narrow the 102 products in one click. Choosing <strong>Long Sleeves</strong> filters the page to exactly <strong>2 items</strong> (Dry Zone Long Sleeve and Ua Mens Tech L S 2 0, both $45), with live counts on every category (Hoodies 27, Crewnecks 29, T-Shirts 25…) and a “Clear filters” link.</p>
+  </section>
+
+  <footer>Campus Customs · Vibe Coded by Shahreer</footer>
+</main>
+</body>
+</html>

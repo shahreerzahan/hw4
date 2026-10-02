@@ -241,9 +241,31 @@ The first five prompts are the design changes I asked for while building the sit
 >
 > Show me the site when done, then commit and push.
 
+### Prompt 7 – Footer credit
+
+> In the footer,  instead of "A class project for MGT 409", change it to "Vibe Coded by Shahreer"
+
 ## Problem 11
 
-_TODO_
+### Prompt 1 – Site testing page
+
+> Problem 11: Site testing
+>
+> I tested the live site and put 3 screenshots in output/app_check_images/: inventory.png, search_cards.png, and usability.png.
+>
+> Make output/app_check.html, a simple page I can double-click to open, that is easy to grade. For each screenshot, add a heading, the screenshot (linked with relative paths like app_check_images/inventory.png), and one or two sentences on what it proves:
+>
+> 1. inventory.png: the chat gives the real stock
+> 2. search_cards.png: asking about hoodies makes product cards appear on the page
+> 3. usability.png: one of my Problem 9 improvements, [the search bar filtering products]
+>
+> Commit and push, and make sure the images are included in the push.
+
+### Prompt 2 – Caption for the first screenshot
+
+(The AI pointed out that inventory.png shows a product search, not stock quantities, and asked how to handle it.)
+
+> oh yes, change it to "shows a product search"
 
 ## Problem 12
 
