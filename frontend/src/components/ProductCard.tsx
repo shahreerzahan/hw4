@@ -8,8 +8,10 @@ export default function ProductCard({ product }: { product: Product }) {
         <img src={product.image_url} alt={product.name} loading="lazy" />
       </div>
       <div className="product-card-body">
-        <h3>{product.name}</h3>
-        <p className="price">{formatPrice(product.price)}</p>
+        <div className="product-card-row">
+          <h3>{product.name}</h3>
+          <p className="price">{formatPrice(product.price)}</p>
+        </div>
         <p className="product-card-desc">{product.description}</p>
       </div>
     </Link>

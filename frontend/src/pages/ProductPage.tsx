@@ -48,13 +48,13 @@ export default function ProductPage() {
         </div>
 
         <div className="product-detail-info">
-          <p className="eyebrow">{product.garment_type}</p>
+          <span className="eyebrow">{product.garment_type}</span>
           <h1>{product.name}</h1>
           <p className="price price-lg">{formatPrice(product.price)}</p>
           <p className="product-detail-desc">{product.description}</p>
 
           <div className="detail-block">
-            <h3>Colors</h3>
+            <div className="detail-label">Colors</div>
             <div className="chips">
               {product.colors.map((c) => (
                 <span key={c} className="chip">{c}</span>
@@ -63,32 +63,25 @@ export default function ProductPage() {
           </div>
 
           <div className="detail-block">
-            <h3>Sizes &amp; Stock</h3>
+            <div className="detail-label">Sizes &amp; stock</div>
             {totalStock === 0 && <p className="error">Sold out in every size, but check back soon!</p>}
-            <table className="stock-table">
-              <thead>
-                <tr>
-                  <th>Size</th>
-                  <th>In stock</th>
-                </tr>
-              </thead>
-              <tbody>
-                {product.sizes.map((s) => (
-                  <tr key={s.size} className={s.quantity === 0 ? 'sold-out' : ''}>
-                    <td>{s.size}</td>
-                    <td>
-                      {s.quantity === 0 ? (
-                        <span className="stock-badge out">Sold out</span>
-                      ) : s.quantity <= LOW_STOCK ? (
-                        <span className="stock-badge low">Only {s.quantity} left</span>
-                      ) : (
-                        <span className="stock-badge in">{s.quantity} available</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="size-grid">
+              {product.sizes.map((s) => {
+                const status = s.quantity === 0 ? 'out' : s.quantity <= LOW_STOCK ? 'low' : 'in'
+                return (
+                  <div key={s.size} className={`size-tile ${status}`}>
+                    <span className="size">{s.size}</span>
+                    <span className={`stock ${status}`}>
+                      {status === 'out'
+                        ? 'Sold out'
+                        : status === 'low'
+                          ? `Only ${s.quantity} left`
+                          : `${s.quantity} in stock`}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
       </div>

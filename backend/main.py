@@ -1,15 +1,18 @@
-"""Campus Customs API: serves products and product images from the SQLite database."""
+"""Campus Customs API: serves products, product images, and accounts from the SQLite database."""
 import json
 import sqlite3
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
-ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = ROOT / "data"
-DB_PATH = DATA_DIR / "campus_customs.db"
+import auth
+from db import DATA_DIR, get_db
+
+PRODUCTS_DIR = DATA_DIR / "products"
+# Background-removed cut-outs made by scripts/remove_backgrounds.py (optional).
+CUTOUTS_DIR = DATA_DIR / "products_nobg"
 
 SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL"]
 
@@ -18,18 +21,12 @@ app = FastAPI(title="Campus Customs API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Product photos live in data/products/; image_file_path in the DB is relative to data/.
-app.mount("/images", StaticFiles(directory=DATA_DIR / "products"), name="images")
-
-
-def get_db() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+app.include_router(auth.router)
 
 
 def product_from_row(row: sqlite3.Row) -> dict:
@@ -44,6 +41,18 @@ def product_from_row(row: sqlite3.Row) -> dict:
         "price": row["price"],
         "image_url": "/images/" + Path(row["image_file_path"]).name,
     }
+
+
+@app.get("/images/{filename}")
+def product_image(filename: str) -> FileResponse:
+    """Serve the transparent cut-out if there is one, otherwise the original photo."""
+    name = Path(filename).name  # blocks paths like ../../.env
+    cutout = CUTOUTS_DIR / (Path(name).stem + ".webp")
+    original = PRODUCTS_DIR / name
+    for path in (cutout, original):
+        if path.is_file():
+            return FileResponse(path, headers={"Cache-Control": "public, max-age=86400"})
+    raise HTTPException(status_code=404, detail="Image not found")
 
 
 @app.get("/api/health")

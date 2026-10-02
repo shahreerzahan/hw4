@@ -13,27 +13,25 @@ export default function Products() {
   }, [])
 
   return (
-    <section className="section">
-      <div className="section-head">
-        <div>
-          <h1>Shop All Products</h1>
-          <p className="muted">
-            Hoodies, crewnecks, tees, and more, all ready to rep the blue and white.
-            {products && ` ${products.length} items.`}
-          </p>
-        </div>
-      </div>
+    <>
+      <section className="page-intro">
+        <span className="eyebrow">The collection{products && ` · ${products.length} pieces`}</span>
+        <h1>Shop all products</h1>
+        <p className="lead">Hoodies, crewnecks, tees, and more, all ready to rep the Bulldogs.</p>
+      </section>
 
-      {error && <p className="error">{error}</p>}
-      {!products && !error && <p className="muted">Loading the goods…</p>}
+      <section className="section section-tight">
+        {error && <p className="error">{error}</p>}
+        {!products && !error && <p className="muted">Loading the goods…</p>}
 
-      {products && (
-        <div className="product-grid">
-          {products.map((p) => (
-            <ProductCard key={p.product_id} product={p} />
-          ))}
-        </div>
-      )}
-    </section>
+        {products && (
+          <div className="product-grid">
+            {products.map((p) => (
+              <ProductCard key={p.product_id} product={p} />
+            ))}
+          </div>
+        )}
+      </section>
+    </>
   )
 }

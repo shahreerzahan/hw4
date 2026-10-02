@@ -6,7 +6,7 @@ A shop website for Campus Customs: a React + Vite + TypeScript front end and a P
 
 ## Run locally
 
-Put the course `data/` folder (with `campus_customs.db` and `products/`) in the project root, and copy `.env.example` to `.env`.
+Put the course `data/` folder (with `campus_customs.db` and `products/`) in the project root, and copy `.env.example` to `.env` (set `PORTKEY_API_KEY` and a random `SESSION_SECRET`).
 
 Backend (http://localhost:8000):
 
@@ -22,3 +22,14 @@ cd frontend && npm install && npm run dev
 ```
 
 The Vite dev server forwards `/api` and `/images` requests to the backend.
+
+### Product photo cut-outs (optional)
+
+The product photos come on black or white backgrounds. To serve transparent cut-outs instead, run this once (it writes `data/products_nobg/` and never changes the originals):
+
+```bash
+.venv/bin/pip install pillow numpy scipy
+.venv/bin/python backend/scripts/remove_backgrounds.py
+```
+
+The backend uses a cut-out when one exists and falls back to the original photo otherwise.

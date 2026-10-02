@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import DanTheBulldog from './DanTheBulldog'
 
 // Placeholder only: the chatbot gets wired to the backend agent in a later problem.
 export default function ChatWidget() {
@@ -7,16 +8,20 @@ export default function ChatWidget() {
   return (
     <div className="chat-widget">
       {open && (
-        <div className="chat-panel" role="dialog" aria-label="Campus Customs chat">
+        <div className="chat-panel" role="dialog" aria-label="Chat with Dan">
           <div className="chat-header">
-            <span>Chat with Campus Customs</span>
+            <DanTheBulldog />
+            <div className="chat-title">
+              <strong>Dan the Bulldog</strong>
+              <span>Your shopping buddy</span>
+            </div>
             <button className="chat-close" onClick={() => setOpen(false)} aria-label="Close chat">
               ×
             </button>
           </div>
           <div className="chat-body">
             <div className="chat-bubble assistant">
-              Hey there, Bulldog! 👋 Our shopping assistant is getting suited up and will be here soon to help you find the perfect gear.
+              Woof, hi there! I'm Dan. I'm still learning the shop, but very soon I'll help you find the perfect fit.
             </div>
           </div>
           <form className="chat-input" onSubmit={(e) => e.preventDefault()}>
@@ -28,9 +33,9 @@ export default function ChatWidget() {
       <button
         className="chat-toggle"
         onClick={() => setOpen((o) => !o)}
-        aria-label={open ? 'Close chat' : 'Open chat'}
+        aria-label={open ? 'Close chat' : 'Chat with Dan'}
       >
-        {open ? '×' : '💬'}
+        {open ? '×' : <DanTheBulldog title="Chat with Dan" />}
       </button>
     </div>
   )
