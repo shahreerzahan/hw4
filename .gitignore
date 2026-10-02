@@ -1,0 +1,17 @@
+# Secrets
+.env
+
+# Data (database + product images) - not committed
+data/
+data.zip
+*.db
+
+# Python
+.venv/
+__pycache__/
+
+# Node
+node_modules/
+
+# macOS
+.DS_Store
