@@ -194,3 +194,22 @@ class ChatHistoryItem(BaseModel):
     results_title: str | None = None
     products: list[ProductCard] = Field(default_factory=list)
     created_at: str
+
+
+# ---------- Audit trail (output/audit_trail.json) ----------
+
+class AuditEntry(BaseModel):
+    """One step of an agent run: a tool call, the final answer, or how the run ended."""
+
+    timestamp: str = Field(description="UTC time of the step, ISO 8601.")
+    run_id: str = Field(description="Groups the steps of one chat message.")
+    iteration: int = Field(description="Which model response in the run this step came from (1, 2, …).")
+    model: str
+    shopper: str = Field(description="'guest' or 'user:<id>'. Never a name, email, or password.")
+    page: str = Field(description="Page the message was sent from, e.g. /products/morse-1-4-zip.")
+    request: str | None = Field(default=None, description="The shopper's message, shortened and redacted (first step only).")
+    tool_name: str | None = Field(default=None, description="Tool called, or 'final_result' for the structured answer.")
+    tool_args: dict | None = Field(default=None, description="Arguments the agent passed, shortened.")
+    result_summary: str = Field(description="Short version of the tool result or answer.")
+    stop_reason: Literal["tool_call", "final_output", "content_filter", "usage_limit", "error"]
+    tokens_used: int | None = Field(default=None, description="Tokens for this model response (counted once per step).")

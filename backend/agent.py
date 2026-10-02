@@ -1,10 +1,16 @@
-"""Campus Customs chat agent: model wiring, system prompt, deps, and tool registration.
+"""Campus Customs chat agent: model wiring, system prompt, deps, tool registration, and audit trail.
 
 main.py calls `chat(message, deps, history)` for every message typed in the website's chat box.
 The agent answers with an AgentReply (text + product_ids); chat() turns the ids into product cards.
+Every step of every run is appended to output/audit_trail.json.
 """
+import json
 import os
+import re
+import threading
+import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -14,12 +20,17 @@ from pydantic_ai import Agent, RunContext
 from pydantic_ai.exceptions import ContentFilterError, ModelHTTPError, UsageLimitExceeded
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
-from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, UserPromptPart
+from pydantic_ai.messages import (
+    ModelMessage, ModelRequest, ModelResponse, RetryPromptPart, TextPart, ThinkingPart, ToolCallPart, ToolReturnPart,
+    UserPromptPart,
+)
 from pydantic_ai.usage import UsageLimits
+
+from pydantic_core import to_jsonable_python
 
 import tools
 from models import (
-    MAX_CARDS, AgentReply, Category, ChatReply, CustomerInfo, HistoryMessage, PageInfo, PriceInfo, ProductInfo, ProductNotFound,
+    MAX_CARDS, AgentReply, AuditEntry, Category, ChatReply, CustomerInfo, HistoryMessage, PageInfo, PriceInfo, ProductInfo, ProductNotFound,
     SearchResults, StockInfo,
 )
 
@@ -186,28 +197,154 @@ class ChatResult:
     remember: bool  # False if the turn was blocked, so it isn't saved or replayed as memory
 
 
+# ---- Audit trail: output/audit_trail.json (append-only) ----
+
+AUDIT_PATH = BACKEND.parent / "output" / "audit_trail.json"
+SUMMARY_CHARS = 200
+REQUEST_CHARS = 120
+ARG_CHARS = 80
+_audit_lock = threading.Lock()
+
+
+def _redact(text: str) -> str:
+    """Mask emails and long digit runs (card/phone numbers) before anything is written to disk."""
+    text = re.sub(r"[\w.+-]+@[\w-]+\.[\w.-]+", "[email]", text)
+    return re.sub(r"\b(?:\d[ -]?){8,}\d\b", "[number]", text)
+
+
+def _short(value, limit: int = SUMMARY_CHARS) -> str:
+    # Tool results are Pydantic models: log them as readable JSON, not Python reprs.
+    text = value if isinstance(value, str) else json.dumps(to_jsonable_python(value), ensure_ascii=False)
+    text = _redact(" ".join(text.split()))
+    return text if len(text) <= limit else text[:limit] + "…"
+
+
+def _short_args(args: dict) -> dict:
+    return {k: (_short(v, ARG_CHARS) if isinstance(v, str) else v) for k, v in args.items()}
+
+
+def audit_steps(messages: list[ModelMessage], run_id: str, shopper: str, page: str, request: str,
+                final: bool) -> list[AuditEntry]:
+    """Turn this run's new PydanticAI messages into audit entries: one per tool call (or one per
+    model response with no tool call). Unless final, stop at the first step whose tool results
+    haven't come back yet, so entries that were already written never change."""
+    results: dict[str, str] = {}
+    for msg in messages:
+        if isinstance(msg, ModelRequest):
+            for part in msg.parts:
+                if isinstance(part, ToolReturnPart):
+                    results[part.tool_call_id] = _short(part.content)
+                elif isinstance(part, RetryPromptPart) and part.tool_call_id:
+                    results[part.tool_call_id] = "retry requested: " + _short(part.content)
+
+    entries: list[AuditEntry] = []
+    responses = [m for m in messages if isinstance(m, ModelResponse)]
+    for iteration, msg in enumerate(responses, start=1):
+        calls = [p for p in msg.parts if isinstance(p, ToolCallPart)]
+        if not final and any(c.tool_call_id not in results for c in calls):
+            break
+        text = " ".join(p.content for p in msg.parts if isinstance(p, (TextPart, ThinkingPart)) and p.content)
+        step = dict(
+            timestamp=msg.timestamp.astimezone(timezone.utc).isoformat(),
+            run_id=run_id, iteration=iteration, model=msg.model_name or MODEL_NAME,
+            shopper=shopper, page=page, tokens_used=msg.usage.total_tokens or None,
+        )
+        if not calls:
+            entries.append(AuditEntry(**step, result_summary=_short(text or "(empty response)"), stop_reason="final_output"))
+        for call in calls:
+            args = call.args_as_dict()
+            if call.tool_name.startswith("final_result"):
+                # The structured answer: log the reply text as the result and the rest as args.
+                entries.append(AuditEntry(
+                    **step, tool_name=call.tool_name,
+                    tool_args={k: v for k, v in args.items() if k != "reply"},
+                    result_summary=_short(args.get("reply", "")),
+                    stop_reason="final_output",
+                ))
+            else:
+                entries.append(AuditEntry(
+                    **step, tool_name=call.tool_name, tool_args=_short_args(args),
+                    result_summary=results.get(call.tool_call_id, "no result (run ended)"),
+                    stop_reason="tool_call",
+                ))
+            step["tokens_used"] = None  # count a step's tokens once, not once per tool call
+    if entries:
+        entries[0].request = _short(request, REQUEST_CHARS)
+    return entries
+
+
+def append_audit(entries: list[AuditEntry]) -> None:
+    """Read the existing list, add the new entries, write it back. Old entries are never removed.
+    If the file is unreadable it is moved aside (never overwritten) and a new list is started."""
+    if not entries:
+        return
+    with _audit_lock:
+        trail = []
+        if AUDIT_PATH.exists():
+            try:
+                trail = json.loads(AUDIT_PATH.read_text() or "[]")
+            except json.JSONDecodeError:
+                AUDIT_PATH.rename(AUDIT_PATH.with_suffix(f".corrupt-{datetime.now():%Y%m%d%H%M%S}.json"))
+        trail += [e.model_dump(exclude_none=False) for e in entries]
+        AUDIT_PATH.parent.mkdir(exist_ok=True)
+        tmp = AUDIT_PATH.with_suffix(".tmp")
+        tmp.write_text(json.dumps(trail, indent=2, ensure_ascii=False) + "\n")
+        tmp.replace(AUDIT_PATH)  # atomic: a crash mid-write can't leave a half-written file
+
+
+def _ending(run_id: str, shopper: str, page: str, request: str, iteration: int, reason: str, summary: str) -> AuditEntry:
+    return AuditEntry(
+        timestamp=datetime.now(timezone.utc).isoformat(), run_id=run_id, iteration=iteration, model=MODEL_NAME,
+        shopper=shopper, page=page, request=_short(request, REQUEST_CHARS) if iteration == 1 else None,
+        result_summary=_short(summary), stop_reason=reason,
+    )
+
+
 async def chat(message: str, deps: ChatDeps, history: list[HistoryMessage]) -> ChatResult:
     """Run the agent on one shopper message (with earlier messages as memory) and return Dan's reply.
 
-    The model provider's safety filter and our usage caps become friendly replies; any other
-    model error (e.g. the API is down) is raised for main.py to turn into an HTTP error."""
+    Each step is appended to the audit trail as soon as it finishes. The model provider's safety
+    filter and our usage caps become friendly replies; any other model error (e.g. the API is
+    down) is logged and raised for main.py to turn into an HTTP error."""
+    shopper = f"user:{deps.customer.user_id}" if deps.customer else "guest"
+    page = deps.page.path
+    run_id = uuid.uuid4().hex
+    written = 0
+
+    def log_progress(run, final: bool) -> int:
+        entries = audit_steps(run.new_messages(), run_id, shopper, page, message, final)
+        append_audit(entries[written:])
+        return len(entries)
+
     try:
-        result = await agent.run(
+        async with agent.iter(
             with_page_note(message, deps.page),
             deps=deps,
             message_history=to_model_messages(history),
             usage_limits=LIMITS,
-        )
-    except ContentFilterError:
+        ) as run:
+            try:
+                async for _ in run:
+                    written = log_progress(run, final=False)
+            except Exception:
+                written = log_progress(run, final=True)
+                raise
+            written = log_progress(run, final=True)
+            out = run.result.output
+    except (ContentFilterError, ModelHTTPError) as e:
+        if isinstance(e, ModelHTTPError) and not _is_content_filter(e):
+            append_audit([_ending(run_id, shopper, page, message, written + 1, "error", f"{type(e).__name__}: {e}")])
+            raise
+        append_audit([_ending(run_id, shopper, page, message, written + 1, "content_filter",
+                              "Blocked by the model provider's content filter; sent the friendly on-topic reply.")])
         return ChatResult(ChatReply(reply=BLOCKED_REPLY), remember=False)
-    except ModelHTTPError as e:
-        if _is_content_filter(e):
-            return ChatResult(ChatReply(reply=BLOCKED_REPLY), remember=False)
-        raise
-    except UsageLimitExceeded:
+    except UsageLimitExceeded as e:
+        append_audit([_ending(run_id, shopper, page, message, written + 1, "usage_limit", f"Stopped by loop limits: {e}")])
         return ChatResult(ChatReply(reply=TOO_COMPLEX_REPLY), remember=False)
+    except Exception as e:
+        append_audit([_ending(run_id, shopper, page, message, written + 1, "error", f"{type(e).__name__}: {e}")])
+        raise
 
-    out = result.output
     # Cards are rebuilt from the catalogue, so names, prices, and images on the page are always
     # real even if the model mistyped something. Unknown ids are dropped, and at most MAX_CARDS
     # are kept even if the model listed more.
