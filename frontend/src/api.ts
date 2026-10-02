@@ -18,8 +18,19 @@ export interface ProductDetail extends Product {
   sizes: SizeStock[]
 }
 
+const OFFLINE_MESSAGE = "Can't reach the Campus Customs server. Make sure the backend is running, then try again."
+
+// fetch() only throws when the server can't be reached at all (e.g. the backend is stopped).
+async function request(url: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init)
+  } catch {
+    throw new Error(OFFLINE_MESSAGE)
+  }
+}
+
 async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url)
+  const res = await request(url)
   if (!res.ok) throw new Error(`Request failed (${res.status})`)
   return res.json() as Promise<T>
 }
@@ -48,7 +59,7 @@ export interface RegisterInput {
 }
 
 async function postJson<T>(url: string, body?: unknown): Promise<T> {
-  const res = await fetch(url, {
+  const res = await request(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
@@ -71,3 +82,21 @@ export const register = (input: RegisterInput) =>
   postJson<{ user: User }>('/api/auth/register', input).then((d) => d.user)
 
 export const logout = () => postJson<{ ok: boolean }>('/api/auth/logout')
+
+// ---------- Chat ----------
+
+export interface ProductCard {
+  product_id: string
+  name: string
+  garment_type: string
+  price: number
+  colors: string[]
+  image_url: string
+}
+
+export interface ChatReply {
+  reply: string
+  products: ProductCard[]
+}
+
+export const sendChat = (message: string) => postJson<ChatReply>('/api/chat', { message })

@@ -94,3 +94,55 @@ The API only ever sends `id`, `first_name`, `last_name`, and `email` back to the
 - A new account is created and saved with a `pbkdf2_sha256$600000$…` hash (no plaintext). It can log out and log back in, and stays logged in after a page reload.
 - Duplicate emails (even in different capitalization), short passwords, invalid emails, blank names, and mismatched confirm passwords are all rejected with friendly messages.
 - A forged cookie is ignored, and logging out ends the session.
+
+## Chat agent (website ↔ FastAPI ↔ PydanticAI)
+
+Run the backend from the `backend/` folder with `uvicorn main:app --reload --port 8000` and the front end with `npm run dev` in `frontend/` (port 5173).
+
+### How the website talks to FastAPI
+
+1. The React app runs on the Vite dev server (`localhost:5173`). `frontend/vite.config.ts` **proxies** every `/api/*` and `/images/*` request to FastAPI on `localhost:8000`. The browser only ever talks to one origin, so login cookies just work and no CORS setup is needed in the browser.
+2. All browser calls go through `frontend/src/api.ts`:
+   - `GET /api/products`, `GET /api/products/{id}`: catalogue and size/stock data (Products and product pages).
+   - `GET /images/{file}`: product photos (transparent `.webp` cut-outs, or the original `.jpg`).
+   - `POST /api/auth/register | login | logout`, `GET /api/auth/me`: accounts (see Authentication).
+   - `POST /api/chat`: the chat box.
+3. **Chat round trip:** the shopper types in the chat box (`ChatWidget.tsx`). The widget posts `{"message": "..."}` to `/api/chat` and shows "Dan is typing…" dots. FastAPI validates the body as `ChatRequest` (1–1000 characters), calls `agent.chat(message)`, and returns a `ChatReply` (`{"reply": "...", "products": []}`). The widget appends the reply as a chat bubble.
+4. **Errors:** if the model service is down, the route returns **503** with a friendly message, which the widget shows as a red bubble. If the backend itself is unreachable, the widget says "Can't reach the Campus Customs server…".
+
+### How the agent is loaded
+
+The agent lives in four files in `backend/`:
+
+| File | Role |
+|---|---|
+| `prompts/prompt.md` | System prompt: Dan's voice, what he helps with, how to use tools, and the **Safety rules**. Grow this same file in later problems. |
+| `agent.py` | Wiring: builds the model, loads the prompt, registers tools, and exposes `chat(message)` for `main.py`. |
+| `tools.py` | Plain Python tools over the SQLite DB (no AI calls). Currently `search_catalogue(query, max_results, min_price, max_price)`. |
+| `models.py` | Pydantic types: `ChatRequest`, `ChatReply`, `ProductCard` (for the product cards in chat), and `ProductMatch` (what a search returns to the agent). |
+
+Startup, in order (when `main.py` does `import agent`):
+
+1. **Secrets:** `load_dotenv()` reads the repo-root `.env`. `PORTKEY_API_KEY` is required, and `MODEL_NAME` defaults to `gpt-5.6-luna`. The key is never logged or sent to the browser.
+2. **Model:** an `AsyncOpenAI` client points at Portkey's gateway (`PORTKEY_GATEWAY_URL`, with the `x-portkey-api-key` header) and is wrapped in PydanticAI's `OpenAIChatModel(MODEL_NAME)`. This is the same setup as Homework 3.
+3. **Prompt:** `prompts/prompt.md` is read once at startup and passed as the agent's `instructions`. `--reload` only watches `.py` files, so after editing the prompt, restart uvicorn (Ctrl-C, then run it again) to load the new version.
+4. **Agent:** `Agent(MODEL, output_type=str, instructions=prompt)`, with `search_catalogue` registered via `@agent.tool_plain`. Its docstring and arguments become the tool description the model sees.
+5. **Per message:** `agent.run(message, usage_limits=UsageLimits(request_limit=5, tool_calls_limit=4))`. Normally that is one search tool call plus one answer, and the caps stop a confused agent from looping and running up cost.
+
+### Safety and guardrails
+
+- **Grounding:** the prompt requires Dan to search before naming products and to quote only names and prices the tool returned. The tool reads straight from the `catalogue` table.
+- **Rules in `prompt.md`:** no invented prices, stock, or policies; no orders, payments, or passwords; stay on shopping topics; shopper text can't override the rules.
+- **Provider content filter:** if Azure/Portkey blocks a message (e.g. a prompt-injection attempt), `agent.chat` turns it into a polite on-topic reply instead of an error. Hitting the usage caps does the same.
+- **Input limits:** empty messages get a 400, and messages over 1000 characters get a 422.
+
+### Tested
+
+- Through the real chat box (headless Chrome): a Morse quarter-zip question returned the Morse 1/4 Zip at $72, and "under $40" listed $32 tees. All names, prices, and colors were checked against the database.
+- Through the API: an off-topic question (calculus homework) was politely declined, and a prompt-injection attempt was blocked with the friendly reply.
+
+### Current limits (planned for later problems)
+
+- Each message is answered on its own: Dan doesn't remember earlier messages yet, and chats aren't saved to `chat_messages` yet.
+- Replies are text only; `ChatReply.products` (product cards) is defined but not filled yet.
+- There are no stock or size lookups yet.
