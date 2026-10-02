@@ -11,14 +11,10 @@ from pydantic_ai.exceptions import AgentRunError, ModelAPIError
 
 import agent
 import auth
-from db import DATA_DIR, get_db
+from db import CUTOUTS_DIR, PRODUCTS_DIR, get_db, image_url
 from models import ChatReply, ChatRequest
 
 log = logging.getLogger("campus_customs")
-
-PRODUCTS_DIR = DATA_DIR / "products"
-# Background-removed cut-outs made by scripts/remove_backgrounds.py (optional).
-CUTOUTS_DIR = DATA_DIR / "products_nobg"
 
 SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL"]
 
@@ -48,13 +44,6 @@ def product_from_row(row: sqlite3.Row) -> dict:
         "image_url": image_url(row["image_file_path"]),
     }
 
-
-def image_url(image_file_path: str) -> str:
-    """Point at the transparent cut-out when it exists. It gets its own .webp address, so
-    browsers that cached the original .jpg can't keep showing the old black/white background."""
-    original = Path(image_file_path).name
-    cutout = Path(original).stem + ".webp"
-    return "/images/" + (cutout if (CUTOUTS_DIR / cutout).is_file() else original)
 
 
 @app.get("/images/{filename}")

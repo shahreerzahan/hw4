@@ -1,6 +1,7 @@
 """Campus Customs chat agent: model wiring, system prompt, and tool registration.
 
-main.py calls `chat(message)` for every message typed in the website's chat box.
+main.py calls `chat(message)` for every message typed in the website's chat box. The agent
+answers with an AgentReply (text + product_ids); chat() turns the ids into product cards.
 """
 import os
 from pathlib import Path
@@ -15,7 +16,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.usage import UsageLimits
 
 import tools
-from models import ChatReply, PriceInfo, ProductInfo, ProductMatch, ProductNotFound, StockInfo
+from models import AgentReply, ChatReply, PriceInfo, ProductInfo, ProductNotFound, SearchResults, StockInfo
 
 BACKEND = Path(__file__).resolve().parent
 load_dotenv(BACKEND.parent / ".env")
@@ -33,9 +34,10 @@ PROMPT_PATH = BACKEND / "prompts" / "prompt.md"
 # These caps stop a confused agent from looping and running up cost.
 LIMITS = UsageLimits(request_limit=6, tool_calls_limit=6)
 
+# Structured output: a short chat reply plus the product_ids to show as cards on the page.
 agent = Agent(
     MODEL,
-    output_type=str,
+    output_type=AgentReply,
     instructions=PROMPT_PATH.read_text(),
 )
 
@@ -43,20 +45,22 @@ agent = Agent(
 @agent.tool_plain
 def search_catalogue(
     query: str = "",
-    max_results: int = 6,
+    max_results: int = 8,
     min_price: float | None = None,
     max_price: float | None = None,
-) -> list[ProductMatch]:
+) -> SearchResults:
     """Search the Campus Customs catalogue.
 
     Args:
         query: Keywords such as type, color, sport, college, or who it's for ("navy hoodie",
             "morse", "dad"). Leave empty to browse only by price.
-        max_results: How many products to return (1-8).
+        max_results: How many products to return (1-30). Use 30 when the shopper wants to
+            browse a whole type ("what hoodies do you have?"), about 8 for a recommendation.
         min_price: Lowest price in dollars, if the shopper gave one.
         max_price: Highest price in dollars, e.g. 40 for "under $40".
 
-    Returns matching products with their exact names, prices, colors, and descriptions.
+    Returns total_matches plus the best matching products with their exact names, prices,
+    colors, and descriptions.
     """
     return tools.search_catalogue(query, max_results, min_price, max_price)
 
@@ -124,4 +128,13 @@ async def chat(message: str) -> ChatReply:
         raise
     except UsageLimitExceeded:
         return ChatReply(reply=TOO_COMPLEX_REPLY)
-    return ChatReply(reply=result.output.strip())
+
+    out = result.output
+    # Cards are rebuilt from the database, so names, prices, and images on the page are always
+    # real even if the model mistyped something. Unknown ids are simply dropped.
+    cards = tools.product_cards(out.product_ids)
+    return ChatReply(
+        reply=out.reply.strip(),
+        results_title=(out.results_title or "Dan's picks") if cards else None,
+        products=cards,
+    )

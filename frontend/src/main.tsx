@@ -8,12 +8,15 @@ import '@fontsource/roboto/700.css'
 import './index.css'
 import App from './App.tsx'
 import AuthProvider from './components/AuthProvider'
+import ChatResultsProvider from './components/ChatResultsProvider'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <App />
+        <ChatResultsProvider>
+          <App />
+        </ChatResultsProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>,

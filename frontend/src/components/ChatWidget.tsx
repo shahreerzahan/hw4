@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useLocation } from 'react-router-dom'
 import DanTheBulldog from './DanTheBulldog'
 import { sendChat } from '../api'
+import { useChatResults } from '../chatResults'
 
 const MAX_MESSAGE_CHARS = 1000
 
@@ -9,6 +11,7 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   error?: boolean
+  cardCount?: number // how many product cards this reply put on the page
 }
 
 const GREETING: Message = {
@@ -26,6 +29,8 @@ export default function ChatWidget() {
   const [sending, setSending] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const { showResults } = useChatResults()
+  const location = useLocation()
 
   // Keep the newest message in view.
   useEffect(() => {
@@ -45,8 +50,12 @@ export default function ChatWidget() {
     setInput('')
     setSending(true)
     try {
-      const { reply } = await sendChat(text)
-      setMessages((m) => [...m, { id: nextId++, role: 'assistant', content: reply }])
+      const { reply, results_title, products } = await sendChat(text)
+      if (products.length) showResults(results_title ?? "Dan's picks", text, products, location.pathname)
+      setMessages((m) => [
+        ...m,
+        { id: nextId++, role: 'assistant', content: reply, cardCount: products.length || undefined },
+      ])
     } catch (err) {
       setMessages((m) => [...m, { id: nextId++, role: 'assistant', content: (err as Error).message, error: true }])
     } finally {
@@ -74,6 +83,15 @@ export default function ChatWidget() {
             {messages.map((m) => (
               <div key={m.id} className={`chat-bubble ${m.role}${m.error ? ' error' : ''}`}>
                 {m.content}
+                {m.cardCount && (
+                  <button
+                    type="button"
+                    className="chat-cards-chip"
+                    onClick={() => document.getElementById('chat-results')?.scrollIntoView({ behavior: 'smooth' })}
+                  >
+                    {m.cardCount === 1 ? 'See it on the page ↑' : `See all ${m.cardCount} on the page ↑`}
+                  </button>
+                )}
               </div>
             ))}
             {sending && (

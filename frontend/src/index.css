@@ -197,6 +197,33 @@ p { margin: 0 0 1rem; }
 .auth-card { max-width: 460px; width: 100%; text-align: center; padding: 2rem 0; }
 .auth-card .dan { width: 120px; margin: 0 auto 2rem; }
 
+/* Chat results on the page */
+.chat-results { background: var(--sand); border-bottom: 1px solid var(--clay); scroll-margin-top: 80px; animation: results-in 0.45s var(--ease); }
+.chat-results-inner { max-width: var(--max); margin: 0 auto; padding: 3.5rem 2rem 4rem; }
+.chat-results .section-head { margin-bottom: 2.5rem; align-items: center; }
+.chat-results-heading { display: flex; align-items: center; gap: 1.25rem; }
+.chat-results-heading .dan { width: 64px; height: 64px; flex: none; }
+.chat-results-heading .eyebrow { margin-bottom: 0.5rem; }
+.chat-results-heading h2 { margin: 0; }
+.chat-results .product-card-image { background: var(--cream); }
+@keyframes results-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.chat-results-collapsed { animation: none; }
+.chat-results-bar {
+  max-width: var(--max); margin: 0 auto; padding: 0.7rem 2rem;
+  display: flex; align-items: center; gap: 0.9rem; font-size: 0.92rem; color: var(--bark);
+}
+.chat-results-bar .dan { width: 30px; height: 30px; flex: none; }
+.chat-results-bar span { flex: 1; }
+.chat-results-bar strong { color: var(--espresso); font-weight: 500; }
+.chat-results-bar .btn { padding: 0.45rem 1.1rem; }
+.chat-results-x { background: none; border: none; font-size: 1.4rem; color: var(--bark); cursor: pointer; line-height: 1; }
+.chat-cards-chip {
+  display: block; margin-top: 0.6rem; padding: 0.35rem 0.8rem; border-radius: 999px;
+  border: 1px solid var(--clay); background: var(--cream); color: var(--accent);
+  font: 500 0.82rem 'Roboto', sans-serif; cursor: pointer;
+}
+.chat-cards-chip:hover { border-color: var(--accent); }
+
 /* Auth forms */
 .auth-form { text-align: left; margin-top: 2.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
 .field { display: flex; flex-direction: column; gap: 0.4rem; }
@@ -289,4 +316,5 @@ p { margin: 0 0 1rem; }
   .dan-band p { margin-inline: auto; }
   .product-detail { grid-template-columns: 1fr; gap: 2.5rem; }
   .product-detail-image { position: static; }
+  .chat-results-inner { padding: 2.5rem 1.5rem 3rem; }
 }

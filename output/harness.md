@@ -201,3 +201,52 @@ If several products tie (e.g. "dad" matches the Dad Crewneck, Hoodie, and T Shir
 | "The jacket" in medium? | `search_catalogue` | Asked which jacket, listing options | (ambiguous) ✓ |
 
 In the website's chat box (on the Morse 1/4 Zip page): "How much is the Morse 1 4 Zip?" got "$72.00", and "in large? What about medium?" got "Large is sold out… Medium is available, with 8 left". Both match the size tiles on the same page.
+
+## Chat search that updates the page (product cards)
+
+When a shopper asks something like "what hoodies do you have?", Dan searches the catalogue and the matching products appear as clickable cards (photo, name, price, short description) at the top of whatever page the shopper is on. The cards use the same `ProductCard` component as the Products page, so clicking one opens the normal single-product page from Problem 3.
+
+### How the results get from the agent to the page
+
+```
+Shopper types in ChatWidget
+  → POST /api/chat {"message": "what hoodies do you have?"}
+  → agent.chat() → agent.run(...)
+       1. Dan calls search_catalogue("hoodie", max_results=30)
+          → SearchResults {total_matches: 27, showing: 27, products: [ProductMatch…]}
+       2. Dan's final answer is a structured AgentReply (not free text):
+          {reply: "We've got 27 hoodies! I've put them on the page…",
+           product_ids: ["ua-gameday-double-knit-hood", …], results_title: "Hoodies"}
+  → tools.product_cards(product_ids): looks each id up in the catalogue table
+       → ProductCard {product_id, name, garment_type, price, colors, description, image_url}
+  → ChatReply {reply, results_title, products: [ProductCard…]}  (JSON response)
+  → ChatWidget: shows the reply bubble with a "See all 27 on the page ↑" chip and calls
+    showResults(title, query, products, current page)
+  → ChatResultsPanel (rendered above every page in App.tsx) shows the cards
+  → Clicking a card → /products/{product_id} → the normal ProductPage
+```
+
+### Key design choices
+
+- **Structured output instead of parsing text.** The agent's `output_type` is `AgentReply` (`backend/models.py`), so PydanticAI makes the model return valid JSON with `reply`, `product_ids`, and `results_title`. The front end never has to guess product names from a sentence.
+- **The model picks the ids; the backend builds the cards.** `product_cards()` rebuilds every card from the `catalogue` table, so names, prices, images, and descriptions on the page are always real data. Unknown or mistyped ids are dropped, and duplicates are removed.
+- **Search can return a whole category.** `search_catalogue` returns up to 30 products, which covers every product of one type (e.g. all 27 hoodies), plus `total_matches`, so Dan knows when there are more than he was shown. "hood" / "hooded" / "hoodies" are normalized so all five hoodie `garment_type`s match.
+- **Short chat text, details on the cards.** The prompt tells Dan not to list every product in the reply when cards are shown, just say how many and point to them.
+- **Shared page state.** `ChatResultsProvider` (React context) holds the latest results, so the chat widget and the page panel can be in different parts of the app. Each new answer with cards replaces the previous set and scrolls into view. "Clear results" removes them.
+- **Clicking a card doesn't bury the product page.** After moving to another page, the results fold into a slim "Dan's results: Hoodies · 27 items · Show" bar, and each new page opens scrolled to the top.
+
+### What `prompt.md` tells Dan (section "Showing products on the page")
+
+| Shopper asks | `product_ids` | `results_title` |
+|---|---|---|
+| A whole type ("what hoodies do you have?") | All relevant matches (search with `max_results=30`) | e.g. "Hoodies" |
+| A recommendation or gift | The 3–6 products recommended, in order | e.g. "Gifts for Mom under $70" |
+| One product's price, stock, or details | Just that product | The product name |
+| Greeting, off-topic, account help | Empty | null |
+
+Dan may only use ids returned by his tools in that turn.
+
+### Tested
+
+- **API:** "what hoodies do you have?" → 27 cards titled "Hoodies", every one a hoodie type. "How much is the Morse 1 4 Zip?" → 1 card. "hi dan!" → 0 cards. "gift ideas for my mom under $70?" → 2 cards (Yale Mom Crewneck $58, Yale Mom Hoodie $68).
+- **In the website's chat box (headless Chrome, Home page):** asking "what hoodies do you have?" showed the panel "Dan found 27 items · Hoodies" with 27 cards. All 27 images loaded, and the reply bubble had a "See all 27 on the page" chip. Clicking the first card opened `/products/ua-gameday-double-knit-hood` at the top of the page, with the results folded into the bar. "Show" brought all 27 back.

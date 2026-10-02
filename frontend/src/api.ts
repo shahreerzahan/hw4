@@ -85,18 +85,21 @@ export const logout = () => postJson<{ ok: boolean }>('/api/auth/logout')
 
 // ---------- Chat ----------
 
-export interface ProductCard {
+/** A product card from the chat, built by the backend from the database. */
+export interface CardProduct {
   product_id: string
   name: string
   garment_type: string
   price: number
   colors: string[]
+  description: string
   image_url: string
 }
 
 export interface ChatReply {
   reply: string
-  products: ProductCard[]
+  results_title: string | null
+  products: CardProduct[]
 }
 
 export const sendChat = (message: string) => postJson<ChatReply>('/api/chat', { message })

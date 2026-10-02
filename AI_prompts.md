@@ -169,7 +169,19 @@ Record of what I asked the AI to do for each problem.
 
 ## Problem 7
 
-_TODO_
+### Prompt 1 – Chat search that updates the page
+
+> Problem 7: Chat search that updates the page
+>
+> When a customer asks about a type of item, like "what hoodies do you have?", the agent should search the catalogue and the website should dynamically show the matching items as product cards (image, name, price, short info) - a neat feature.
+>
+> The agent should return the matching products in a structured format, and the front end should display them on the page.
+>
+> Clicking any of these cards should still open the single product page from Problem 3.
+>
+> Update prompt.md and output/harness.md to explain how the search results get from the agent to the page.
+>
+> Test it by asking "what hoodies do you have?" in the chat, then commit and push.
 
 ## Problem 8
 

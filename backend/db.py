@@ -19,3 +19,16 @@ def get_db() -> Iterator[sqlite3.Connection]:
         conn.commit()
     finally:
         conn.close()
+
+
+PRODUCTS_DIR = DATA_DIR / "products"
+# Background-removed cut-outs made by scripts/remove_backgrounds.py (optional).
+CUTOUTS_DIR = DATA_DIR / "products_nobg"
+
+
+def image_url(image_file_path: str) -> str:
+    """Point at the transparent cut-out when it exists. It gets its own .webp address, so
+    browsers that cached the original .jpg can't keep showing the old black/white background."""
+    original = Path(image_file_path).name
+    cutout = Path(original).stem + ".webp"
+    return "/images/" + (cutout if (CUTOUTS_DIR / cutout).is_file() else original)

@@ -2,6 +2,8 @@ import { Route, Routes } from 'react-router-dom'
 import NavBar from './components/NavBar'
 import Footer from './components/Footer'
 import ChatWidget from './components/ChatWidget'
+import ChatResultsPanel from './components/ChatResultsPanel'
+import ScrollToTop from './components/ScrollToTop'
 import Home from './pages/Home'
 import Products from './pages/Products'
 import ProductPage from './pages/ProductPage'
@@ -13,8 +15,10 @@ import NotFound from './pages/NotFound'
 export default function App() {
   return (
     <div className="app">
+      <ScrollToTop />
       <NavBar />
       <main className="main">
+        <ChatResultsPanel />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/products" element={<Products />} />

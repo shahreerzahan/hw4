@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom'
 import { formatPrice, type Product } from '../api'
 
-export default function ProductCard({ product }: { product: Product }) {
+// Works for catalogue products and for the cards Dan puts on the page from the chat.
+type CardData = Pick<Product, 'product_id' | 'name' | 'price' | 'description' | 'image_url'>
+
+export default function ProductCard({ product }: { product: CardData }) {
   return (
     <Link to={`/products/${product.product_id}`} className="product-card">
       <div className="product-card-image">

@@ -11,13 +11,15 @@ class ChatRequest(BaseModel):
 
 
 class ProductCard(BaseModel):
-    """A product the chat can show as a clickable card (same fields the Products page uses)."""
+    """A product shown as a clickable card on the page. Built by the backend from the database
+    (never from the model's text), with the same fields the Products page cards use."""
 
     product_id: str
     name: str
     garment_type: str
     price: float
     colors: list[str] = []
+    description: str
     image_url: str
 
 
@@ -25,7 +27,25 @@ class ChatReply(BaseModel):
     """What POST /api/chat sends back to the chat box."""
 
     reply: str = Field(description="Dan's message to the shopper, in plain friendly text.")
+    results_title: str | None = Field(default=None, description="Heading for the product cards, e.g. 'Hoodies'.")
     products: list[ProductCard] = Field(default_factory=list, description="Products to show as cards.")
+
+
+class AgentReply(BaseModel):
+    """The agent's structured final answer. main.py turns product_ids into ProductCards."""
+
+    reply: str = Field(description="Your short, friendly chat message to the shopper (plain text).")
+    product_ids: list[str] = Field(
+        default_factory=list,
+        description=(
+            "product_id of every product to show as a card on the page, best match first. "
+            "Only ids returned by your tools this turn. Empty if no products are relevant."
+        ),
+    )
+    results_title: str | None = Field(
+        default=None,
+        description="Short heading for the cards, e.g. 'Hoodies' or 'Navy crewnecks under $60'. Null if no cards.",
+    )
 
 
 class ProductMatch(BaseModel):
@@ -37,6 +57,14 @@ class ProductMatch(BaseModel):
     price: float
     colors: list[str]
     description: str
+
+
+class SearchResults(BaseModel):
+    """search_catalogue: the best matches plus how many matched in total."""
+
+    total_matches: int = Field(description="How many catalogue products matched in total.")
+    showing: int = Field(description="How many are in `products` (may be fewer than total_matches).")
+    products: list[ProductMatch]
 
 
 # ---------- Lookup tool results (what the agent sees) ----------

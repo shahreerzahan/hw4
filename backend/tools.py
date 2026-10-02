@@ -5,10 +5,12 @@ import re
 
 import sqlite3
 
-from db import get_db
-from models import PriceInfo, ProductInfo, ProductMatch, ProductNotFound, SizeStock, StockInfo
+from db import get_db, image_url
+from models import (
+    PriceInfo, ProductCard, ProductInfo, ProductMatch, ProductNotFound, SearchResults, SizeStock, StockInfo,
+)
 
-MAX_RESULTS = 8
+MAX_RESULTS = 30  # enough to show every product of one type (e.g. all 27 hoodies) as cards
 _STOPWORDS = {
     "a", "an", "and", "the", "of", "on", "with", "in", "for", "to", "me", "my", "i", "do", "you",
     "have", "any", "some", "show", "find", "want", "looking", "something", "please", "yale",
@@ -18,8 +20,10 @@ _STOPWORDS = {
 def _words(text: str) -> set[str]:
     """Whole words, lowercased, with a simple plural -> singular ("hoodies" -> "hoodie").
     "t-shirt" / "tee" / "tshirt" all become "tshirt", and "quarter-zip" / "1/4 zip" become
-    "quarterzip", so the different spellings match each other."""
+    "quarterzip", and "hood" / "hooded" / "hoodies" become "hoodie", so the different spellings
+    match each other."""
     text = re.sub(r"\bt[\s-]?shirts?\b|\btees?\b", "tshirt", text.lower())
+    text = re.sub(r"\bhood(?:s|ed|ies|ie)?\b", "hoodie", text)
     text = re.sub(r"\b(?:quarter|1\s*/?\s*4)[\s-]*zips?\b", "quarterzip", text)
     words = set()
     for w in re.findall(r"[a-z0-9]+", text):
@@ -34,7 +38,7 @@ def search_catalogue(
     max_results: int = MAX_RESULTS,
     min_price: float | None = None,
     max_price: float | None = None,
-) -> list[ProductMatch]:
+) -> SearchResults:
     """Rank catalogue products by how many query words appear in their name, type, colors,
     tags, and description (name and tag matches count more), optionally within a price range.
     An empty query with a price range lists the products in that range, cheapest first."""
@@ -57,7 +61,7 @@ def search_catalogue(
             scored.append((score, row, colors))
 
     scored.sort(key=lambda s: (-s[0], s[1]["price"], s[1]["name"]))
-    return [
+    products = [
         ProductMatch(
             product_id=row["product_id"],
             name=row["name"],
@@ -67,6 +71,33 @@ def search_catalogue(
             description=row["description"],
         )
         for _, row, colors in scored[: max(1, min(max_results, MAX_RESULTS))]
+    ]
+    return SearchResults(total_matches=len(scored), showing=len(products), products=products)
+
+
+def product_cards(product_ids: list[str]) -> list[ProductCard]:
+    """Build page cards for the products the agent picked, straight from the database.
+    Unknown ids are dropped and duplicates removed, keeping the agent's order."""
+    ids = list(dict.fromkeys(pid.strip() for pid in product_ids if pid.strip()))
+    if not ids:
+        return []
+    with get_db() as conn:
+        rows = conn.execute(
+            f"SELECT * FROM catalogue WHERE product_id IN ({','.join('?' * len(ids))})", ids
+        ).fetchall()
+    by_id = {r["product_id"]: r for r in rows}
+    return [
+        ProductCard(
+            product_id=r["product_id"],
+            name=r["name"],
+            garment_type=r["garment_type"],
+            price=r["price"],
+            colors=json.loads(r["colors"]),
+            description=r["description"],
+            image_url=image_url(r["image_file_path"]),
+        )
+        for pid in ids
+        if (r := by_id.get(pid))
     ]
 
 
