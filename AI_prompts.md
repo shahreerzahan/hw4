@@ -287,4 +287,14 @@ The first five prompts are the design changes I asked for while building the sit
 
 ## Problem 13
 
-_TODO_
+### Prompt 1 – Push to GitHub and submit the URL
+
+> Problem 13: Push to GitHub and submit the URL
+>
+> Write README.md explaining how to run the front end and backend after putting the data folder (campus_customs.db and products/) in place.
+>
+> Make sure the repo matches the expected hw4 layout, .env.example has placeholders only, and .env, the database, and product images are NOT in the repo.
+>
+> Commit and push, then show me git status.
+
+(Attached screenshots of the expected hw4 repo layout and the local-only data pack.)
